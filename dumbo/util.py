@@ -5,6 +5,16 @@ util.py
 Utility routines for the tsqr and regression code.
 """
 
+import sys
+import dumbo.util
+
+def setstatus(msg):
+    print >>sys.stderr, "Status: ", msg
+    dumbo.util.setstatus(msg)
+
+def array2list(row):
+    return [float(val) for val in row]
+
 """ A utility to flatten a lists-of-lists. """
 def flatten(l, ltypes=(list, tuple)):
     ltype = type(l)
