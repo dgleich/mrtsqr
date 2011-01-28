@@ -8,13 +8,11 @@ The output of this script is a Hadoop distributed sequence file,
 where each key is a random number, and each value is a row of
 the matrix.
 
-An artificial limitation of this script is that the number of 
-rows of the matrix must be a scalar multiple of the number of columns.
-
 
 History
 -------
 :2011-01-26: Initial coding
+:2011-01-27: Added maprows to let mappers handle more than ncols of data.
 """
 
 __author__ = 'David F. Gleich'
@@ -33,6 +31,10 @@ import numpy
 
 import util
 
+# create the global options structure
+gopts = util.GlobalOptions()
+
+
 def first_mapper(data):
     """ This mapper doesn't take any input, and generates the R factor. """
     hostname = os.uname()[1]
@@ -42,34 +44,28 @@ def first_mapper(data):
     for key,val in data:
         pass
     
-    n = int(os.getenv('ncols'))
+    n = gopts.getintkey('ncols')
     m = int(os.getenv('nrows'))
+    k = int(os.getenv('maprows'))/n
     s = float(m)/float(n)
     util.setstatus(
         "generating %i-by-%i R matrix with scale factor %i/%i=%s"%(
         n, n, m, n, s))
     
-    
     R = numpy.triu(numpy.ones((n,n)))/math.sqrt(s)
     
-    util.setstatus('generating local %i-by-%i Q matrix'%(n,n))
-    Q = numpy.linalg.qr(numpy.random.randn(n,n))[0] # just the Q factor
-    A = Q.dot(R)
-    util.setstatus('outputting %i rows'%(A.shape[0]))
-    for row in A:
-        key = random.randint(0, 4000000000)
-        yield key, util.array2list(row)
+    for i in xrange(k):
+        util.setstatus(
+            'step %i/%i: generating local %i-by-%i Q matrix'%(i+1,k,n,n))
         
-def second_mapper(data):
-    
-    n = int(os.getenv('ncols'))
-    m = int(os.getenv('nrows'))
-    rows = []
-    util.setstatus('acquiring data with ncols=%i'%(n))
-    for key,value in data:
-        assert(len(value) == n)
-        rows.append(value)
-    dumbo.util.incrcounter('Program','rows acquired',len(rows))
+        Q = numpy.linalg.qr(numpy.random.randn(n,n))[0] # just the Q factor
+        A = Q.dot(R)
+        util.setstatus('step %i/%i: outputting %i rows'%(i+1,k,A.shape[0]))
+        for row in A:
+            key = random.randint(0, 4000000000)
+            yield key, util.array2list(row)
+            
+def localQoutput(rows):
     
     util.setstatus('converting to numpy array')
     A = numpy.array(rows)
@@ -77,59 +73,93 @@ def second_mapper(data):
     
     util.setstatus('generating local Q of size %i-by-%i'%(localm,localm))
     Q = numpy.linalg.qr(numpy.random.randn(localm,localm))[0] # just the Q factor
+    util.setstatus(
+        'multiplying %i-by-%i A by %i-by-%i Q'%(localm,A.shape[1],localm,localm))
     A = Q.dot(A)
     
     util.setstatus('outputting')
     for row in A:
-        key = random.randint(0, 4000000000)
-        yield key, util.array2list(row)
+        yield util.array2list(row)
+                
+        
+def second_mapper(data):
     
+    n = gopts.getintkey('ncols')
+    m = int(os.getenv('nrows'))
+    maxlocal = int(os.getenv('maxlocal'))
     
+    rows = []
+    util.setstatus('acquiring data with ncols=%i'%(n))
+    
+    for key,value in data:
+        assert(len(value) == n)
+        
+        rows.append(value)
+        
+        if len(rows) >= maxlocal:
+            dumbo.util.incrcounter('Program','rows acquired',len(rows))
+            
+            for row in localQoutput(rows):
+                key = random.randint(0, 4000000000)
+                yield key, row
+            
+            # reset rows, status
+            rows = []
+            util.setstatus('acquiring data with ncols=%i'%(n))
+            
+    if len(rows) > 0:
+        for row in localQoutput(rows):
+            key = random.randint(0, 4000000000)
+            yield key, row
+    
+
 def starter(prog):
     """ Start the program with a null input. """
     # get options
     
+    # set the global opts
+    gopts.prog = prog
+    
+    prog.addopt('memlimit','4g')
     prog.addopt('file','util.py')
     prog.addopt('libegg','numpy')
     
-    m = prog.delopt('nrows')
-    n = prog.delopt('ncols')
-    if m is None or n is None:
-        return "'nrows' or 'ncols' not specified'"
+    
+    m = gopts.getintkey('nrows',None) # error with no key
+    n = gopts.getintkey('ncols',None) # error with no key
+    
+    
+    maprows = gopts.getintkey('maprows',2*n)
+    stages = gopts.getintkey('nstages',2)
+    maxlocal = gopts.getintkey('maxlocal',n)
         
-    m = int(m)
-    n = int(n)
+    if maprows % n is not 0:
+        maprows = (maprows/n)*n
+        gopts.setkey('maprows',maprows)
+        print "'maprows' adjusted to", maprows, "to ensure integer k in maprows=k*ncols"
     
-    stages = prog.delopt('nstages')
-    if stages is None:
-        stages = 2
-    else:
-        stages = int(stages)
-    
-    if m % n is not 0:
-        m = ((m/n) + 1)*n
-        print "'nrows' changed to", m, "to ensure scalar nrows=k*ncols"
+    if m % maprows is not 0:
+        m = ((m/maprows)+1)*maprows
+        gopts.setkey('nrows',m)
+        print "'nrows' changed to", m, "to ensure scalar integer k in nrows=k*maprows"
     
     print "using", stages, "stages"
     
-    prog.addopt('param','nrows='+str(m))
-    os.putenv('nrows',str(m))
-    prog.addopt('param','ncols='+str(n))
-    os.putenv('ncols',str(n))
-    prog.addopt('param','nstages='+str(stages))
-    os.putenv('nstages',str(stages))
-    
+    gopts.save_params()
+   
     prog.addopt('input','IGNORED')
     prog.addopt('libjar','../java/build/jar/hadoop-lib.jar')
     prog.addopt('inputformat','gov.sandia.dfgleic.NullInputFormat')
+    
+    prog.addopt('jobconf','mapred.output.compress=true')
 
 
 def runner(job):
     # grab info from environment
-    m = int(os.getenv('nrows'))
-    n = int(os.getenv('ncols'))
-    k = m/n
-    stages = int(os.getenv('nstages'))
+    m = gopts.getintkey('nrows')
+    maprows = gopts.getintkey('maprows')
+    k = m/maprows
+    stages = gopts.getintkey('nstages')
     
     print >>sys.stderr, "using %i map tasks"%(k)
     
@@ -137,9 +167,11 @@ def runner(job):
         if i==0:
             opts = [('numreducetasks',str(k)),
                     ('nummaptasks',str(k))]
-            job.additer(first_mapper,dumbo.lib.identityreducer,opts=opts)
+            job.additer(first_mapper,
+                "org.apache.hadoop.mapred.lib.IdentityReducer",
+                opts=opts)
         else:
-            job.additer(second_mapper,dumbo.lib.identityreducer,
+            job.additer(second_mapper,"org.apache.hadoop.mapred.lib.IdentityReducer",
                 opts=[('numreducetasks',str(k))])
             
 if __name__=='__main__':

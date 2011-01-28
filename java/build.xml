@@ -1,0 +1,27 @@
+<project name="hadoop-lib" default="jar">
+  <property name="build.dir" value="./build"/>
+  <property name="src.dir" value="./src" />
+  
+  <property name="classes.dir" value="${build.dir}/classes" />
+  <property name="jar.dir" value="${build.dir}/jar" />
+  
+
+  <path id="classpath">
+    <pathelement location="/home/mrhadoop/hadoop/hadoop-common-0.21.0.jar" />
+    <pathelement location="/home/mrhadoop/hadoop/hadoop-mapred-0.21.0.jar" />   
+   </path>
+
+  <target name="compile">
+    <mkdir dir="${classes.dir}"/>
+    <javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="classpath"/>
+  </target>
+
+  <target name="jar" depends="compile">
+    <mkdir dir="${jar.dir}"/>
+    <jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}"/>
+  </target>
+
+  <target name="clean">
+    <delete dir="${classes.dir}"/>
+  </target>
+</project>

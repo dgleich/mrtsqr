@@ -18,6 +18,9 @@ import random
 import dumbo
 import dumbo.backends.common
 
+# create the global options structure
+gopts = util.GlobalOptions()
+
 class SerialTSQR(dumbo.backends.common.MapRedBase):
     def __init__(self,blocksize=3,keytype='random',isreducer=False):
         self.blocksize=blocksize
@@ -102,46 +105,59 @@ class SerialTSQR(dumbo.backends.common.MapRedBase):
             key = self.keyfunc(i)
             yield key, row
     
-opts = {
-    'reduce_schedule': '1'
-}
-        
 def runner(job):
     #niter = int(os.getenv('niter'))
     
-    job.additer(mapper=SerialTSQR(isreducer=False),
-            reducer=SerialTSQR(isreducer=True),
-            opts=[('numreducetasks','1')])
+    blocksize = gopts.getintkey('blocksize')
+    schedule = gopts.getstrkey('reduce_schedule')
+    
+    schedule = schedule.split(',')
+    for part in schedule:
+        if part.startswith('s'):
+            nreducers = int(part[1:])
+            # these tasks should just spray data and compress
+            job.additer(mapper="org.apache.hadoop.mapred.lib.IdentityMapper",
+                reducer="org.apache.hadoop.mapred.lib.IdentityReducer",
+                opts=[('numreducetasks',str(nreducers))])
+        else:
+            nreducers = int(part)
+            job.additer(mapper=SerialTSQR(blocksize=blocksize,isreducer=False),
+                    reducer=SerialTSQR(blocksize=blocksize,isreducer=True),
+                    opts=[('numreducetasks',str(nreducers))])
     
     
 
 def starter(prog):
-    global opts
+    
+    print "running starter!"
+    
+    # set the global opts
+    gopts.prog = prog
+    
+   
     mat = prog.delopt('mat')
     if not mat:
         return "'mat' not specified'"
         
-    #schedule = prog.delopt('schedule')
-    #if niter:
-    #    opts['niter'] = int(niter)
-    
-    #prog.addopt('param','niter='+str(opts['niter']))
-    #os.putenv('niter',str(opts['niter']))
-    
+    prog.addopt('memlimit','4g')
     prog.addopt('libegg','numpy')
     prog.addopt('file','util.py')
     
     prog.addopt('input',mat)
     matname,matext = os.path.splitext(mat)
     
-    prog.addopt('memlimit','4g')
+    gopts.getintkey('blocksize',3)
+    gopts.getstrkey('reduce_schedule','1')
+    
     
     output = prog.getopt('output')
     if not output:
         prog.addopt('output','%s-qrr%s'%(matname,matext))
         
     prog.addopt('overwrite','yes')
-
+    prog.addopt('jobconf','mapred.output.compress=true')
+    
+    gopts.save_params()
 
 if __name__ == '__main__':
     dumbo.main(runner, starter)
