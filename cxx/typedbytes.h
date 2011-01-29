@@ -221,11 +221,53 @@ public:
             return 0;
         }
     }
+    
+    bool can_be_int(TypedBytesType t) {
+        switch (t) {
+            case TypedBytesByte:
+            case TypedBytesBoolean:
+            case TypedBytesInteger:
+                return true;
+                
+            default:
+                return false;
+        }
+    }
+    
+    bool can_be_long(TypedBytesType t) {
+        if (t == TypedBytesLong) {
+            return true;
+        } else {
+            return can_be_int(t);
+        }
+    }
+    
+    bool can_be_float(TypedBytesType t) {
+        if (t == TypedBytesFloat) {
+            return true;
+        } else { 
+            return can_be_long(t);
+        }
+    }
+    
+    bool can_be_double(TypedBytesType t) {
+        if (t == TypedBytesDouble) {
+            return true;
+        } else {
+            return can_be_float(t);
+        }
+    }
+    
+    
         
     bool _read_opaque_primitive(typedbytes_opaque& buffer, 
         TypedBytesType typecode);
     bool _read_opaque(typedbytes_opaque& buffer, bool list);
     bool read_opaque(typedbytes_opaque& buffer);
+    
+    /** Skip the next entry in the TypedBytes file.
+     */ 
+    bool skip_next();
         
     int read_int() {
         typedbytes_check_type_code(TypedBytesInteger);

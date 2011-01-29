@@ -122,3 +122,10 @@ bool TypedBytesInFile::_read_opaque(typedbytes_opaque& buffer, bool list) {
 bool TypedBytesInFile::read_opaque(typedbytes_opaque& buffer) {
     return _read_opaque(buffer, false);
 }
+
+
+bool TypedBytesInFile::skip_next() {
+    // TODO, rewrite these functions to avoid loading into memory
+    typedbytes_opaque value;
+    return read_opaque(value);
+}

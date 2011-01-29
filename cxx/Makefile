@@ -17,9 +17,9 @@ typedbytes.o: typedbytes.h
 dump_typedbytes_info.o: typedbytes.h
 write_typedbytes_test.o: typedbytes.h
 word_count.o: typedbytes.h
-tsqr.o: typedbytes.h
+tsqr.o: typedbytes.h 
 
-tsqr: tsqr.o
+tsqr: tsqr.o typedbytes.o
 
 word_count: word_count.o typedbytes.o
 
