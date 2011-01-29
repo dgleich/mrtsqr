@@ -1,0 +1,34 @@
+This experiment tests speed in generating test problems.  It seems
+like the best speed is when maxlocal is about 2x nrows for small problems.
+It seems like using more stages is probably a better stragegy for
+further manipulating test problems than using larger maxlocal rows.
+
+This problem has 50 colums
+
+(dumbo)[nblogin1 gen_test_perf]$ # time for 100 rows at a time
+(dumbo)[nblogin1 gen_test_perf]$ time bash ./generate_test_perf.sh 100
+
+real	0m2.549s
+user	0m2.362s
+sys	0m0.087s
+(dumbo)[nblogin1 gen_test_perf]$ 
+(dumbo)[nblogin1 gen_test_perf]$ # time for 150 rows at a time
+(dumbo)[nblogin1 gen_test_perf]$ time bash ./generate_test_perf.sh 150
+
+real	0m3.200s
+user	0m2.959s
+sys	0m0.110s
+(dumbo)[nblogin1 gen_test_perf]$ 
+(dumbo)[nblogin1 gen_test_perf]$ # time for 200 rows at a time
+(dumbo)[nblogin1 gen_test_perf]$ time bash ./generate_test_perf.sh 200
+
+real	0m3.360s
+user	0m3.193s
+sys	0m0.095s
+(dumbo)[nblogin1 gen_test_perf]$ 
+(dumbo)[nblogin1 gen_test_perf]$ # time for 300 rows at time
+(dumbo)[nblogin1 gen_test_perf]$ time bash ./generate_test_perf.sh 300
+
+real	0m4.489s
+user	0m4.306s
+sys	0m0.114s

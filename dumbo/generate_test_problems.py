@@ -88,6 +88,8 @@ def second_mapper(data):
     m = int(os.getenv('nrows'))
     maxlocal = int(os.getenv('maxlocal'))
     
+    totalrows = 0
+    totalouts = 0
     rows = []
     util.setstatus('acquiring data with ncols=%i'%(n))
     
@@ -95,9 +97,11 @@ def second_mapper(data):
         assert(len(value) == n)
         
         rows.append(value)
+        totalrows += 1
         
         if len(rows) >= maxlocal:
             dumbo.util.incrcounter('Program','rows acquired',len(rows))
+            totalouts += 1
             
             for row in localQoutput(rows):
                 key = random.randint(0, 4000000000)
@@ -106,6 +110,7 @@ def second_mapper(data):
             # reset rows, status
             rows = []
             util.setstatus('acquiring data with ncols=%i'%(n))
+            
             
     if len(rows) > 0:
         for row in localQoutput(rows):
@@ -152,6 +157,8 @@ def starter(prog):
     prog.addopt('inputformat','gov.sandia.dfgleic.NullInputFormat')
     
     prog.addopt('jobconf','mapred.output.compress=true')
+    prog.adoopt('jobconf','com.hadoop.compression.lzo.LzoCodec')
+    prog.adoopt('jobconf','com.hadoop.compression.lzo.LzoCodec')
 
 
 def runner(job):
