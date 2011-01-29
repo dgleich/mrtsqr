@@ -1,0 +1,9 @@
+TSQR Results
+
+100,000,000 by 500
+
+Dumbo 1: 1 hr, 49 mins  (Fri Jan 28 00:05:43 PST 2011 -- Fri Jan 28 01:55:10 PST 2011)
+Dumbo 250,1: 20 min 9 secs (Fri Jan 28 08:53:23 PST 2011 -- Fri Jan 28 09:13:32 PST 2011)
+Hadoopy 250,1: 13 mins 2 secs (Thu Jan 27 23:48:40 PST 2011 -- Fri Jan 28 00:01:42 PST 2011)
+
+

@@ -1,5 +1,5 @@
 *.o
 dump_typedbytes_info
-write_typedbyted_test
+write_typedbytes_test
 
 
