@@ -5,9 +5,46 @@ tsqr.py
 =======
 
 Tall and Skinny QR using hadoopy.
-This command is just the driver that runs the other hadoopy commands.
-See tsqr_mapred.py for the acutal hadoopy map-reduce code.
 
+Usage
+-----
+
+    # ensure that the hadoop command executes the correct hadoop
+    export HADOOP_HOME=/path/to/hadoop/dir
+    python tsqr.py -mat <hdfspath> \
+        [-output <hdfspath> -blocksize <int> -reduce_schedule <string>]
+    
+      -mat <path> : the path to a matrix stored in HDFS where the
+        row is an array of values.  
+      
+      -output <path> : the output path.  If matpath is mydir/mymatrix.mseq
+        then the default output value is mydir/mymatrix-qrr.mseq.
+        This default perserves the name and the extension.
+      
+      -blocksize <int> : the number of blocks of rows to read before
+        computing a QR compression of the data.  The default is 3 blocks,
+        i.e. read three rows for each column.  For matrices with many
+        columns ( > 500 ), consider reducing this to 2.  For matrices
+        with few columns (< 50), consider increasing this to 4.
+        
+      -reduce_schedule <string> : This program can use either a single
+        Hadoop job (the default) or a multi-stage iteration.  For large
+        problems with many mappers, a multi-stage iteration will 
+        improve parallelism.  The format is a comma separated list of
+        the number of reduers to use for each iteration.
+          Default: -reduce_schedule 1
+        But, to use a two stage approach, then:
+          -reduce_schedule 250,1
+        will use 250 reducers for the first iteration, and 1 for the
+        final.  The final number of reducers must be one.
+        
+        There is a special type of command that can be included here too.
+        Using 
+          -reduce_schedule s100,100,1
+        will first use an identity map-reduce operation to spread the
+        data over the cluster.  This will increase the number of mappers
+        at the next stage, which can dramatically increase speed.
+    
 History
 -------
 :2010-01-27: Initial coding
@@ -116,7 +153,7 @@ class SerialTSQR():
         for value in values:
             self.mapper(key,value)
         
-def starter(args):
+def starter(args, launch=True):
     """ The function that calls hadoopy.launch_frozen """
     gopts.args = args
     
@@ -141,6 +178,7 @@ def starter(args):
     
     jobconfs = ['mapred.output.compress=true']
     
+        
     for i,step in enumerate(steps):
         if i>0:
             input = curoutput
@@ -154,9 +192,9 @@ def starter(args):
             
         gopts.setkey('iter',i)
             
-        hadoopy.launch_frozen(input, curoutput, __file__, 
-            cmdenvs=gopts.cmdenv(), num_reducers=int(step),
-            extra='--include-path=/home/dfgleic/envs26/dumbo/lib/python2.6/site-packages/')
+        if launch:
+            hadoopy.launch_frozen(input, curoutput, __file__, 
+                cmdenvs=gopts.cmdenv(), num_reducers=int(step))
     
     
 def runner():
@@ -174,7 +212,10 @@ def runner():
 if __name__=='__main__':
     args = hadoopy_util.get_args(sys.argv[1:])
     print >>sys.stderr, sys.argv[1:]
-    if sys.argv[1] != 'map' and sys.argv[1] != 'reduce':
+    if sys.argv[1] == 'freeze':
+        starter(args,launch=False)
+        runner()
+    elif sys.argv[1] != 'map' and sys.argv[1] != 'reduce':
         starter(args)
     else:
         runner()

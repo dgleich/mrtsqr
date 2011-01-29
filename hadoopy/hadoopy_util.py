@@ -31,7 +31,7 @@ class SavedOptions:
         
     def _get_key(self,key,default,typefunc):
         if key in self.cache:
-            return typefunc(key)
+            return typefunc(self.cache[key])
         if self.args is None:
             # this command had better be in the os environment
             val = os.getenv(key)
