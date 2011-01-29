@@ -1,0 +1,46 @@
+TypedBytesByteSequence: length=4 first 8 bytes: efbeadde 00000000
+TypedBytesByteSequence: length=10 first 8 bytes: 61626364 65666768
+TypedBytesByte: 0
+TypedBytesByte: -1
+TypedBytesByte: 1
+TypedBytesBoolean: 0
+TypedBytesBoolean: 1
+TypedBytesInteger: 0
+TypedBytesInteger: -1
+TypedBytesInteger: 1
+TypedBytesLong: 0
+TypedBytesLong: -1
+TypedBytesLong: 1
+TypedBytesFloat: 0.000000
+TypedBytesFloat: -1.000000
+TypedBytesFloat: 1.000000
+TypedBytesFloat: 1.500000
+TypedBytesDouble: 0.000000
+TypedBytesDouble: -1.000000
+TypedBytesDouble: 1.000000
+TypedBytesDouble: 1.500000
+TypedBytesString: hi there
+TypedBytesString: hi
+there
+TypedBytesString: 
+TypedBytesList:
+  TypedBytesDouble: 1.000000
+  TypedBytesDouble: 2.000000
+  TypedBytesDouble: -0.000000
+TypedBytesMap: length=2
+ Key:
+  TypedBytesString: hi
+ Value:
+  TypedBytesInteger: 1
+ Key:
+  TypedBytesString: there
+ Value:
+  TypedBytesInteger: 2
+TypedBytesVector: length=3
+  TypedBytesString: All
+  TypedBytesString: good
+  TypedBytesString: men
+TypedBytesVector: length=3
+  TypedBytesBoolean: 0
+  TypedBytesInteger: 5
+  TypedBytesDouble: 3.141593

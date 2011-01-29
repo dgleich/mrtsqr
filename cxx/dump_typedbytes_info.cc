@@ -139,13 +139,18 @@ void dump_typedbytes_all(TypedBytesInFile& f, int indent) {
 
 int main(int argc, char **argv) {
     if (argc != 2) {
-        printf("usage: dump_typedbytes_info filename\n");
+        printf("usage: dump_typedbytes_info filename|-\n");
         return (-1);
     }
-    FILE *f = fopen(argv[1], "rb");
-    if (!f) {
-        printf("cannot open %s\n", argv[1]);
-        return (1);
+    FILE *f = NULL;
+    if (strcmp(argv[1],"-") == 0) {
+        f = stdin;
+    } else {
+        f = fopen(argv[1], "rb");
+        if (!f) {
+            printf("cannot open %s\n", argv[1]);
+            return (1);
+        }
     }
     TypedBytesInFile tbf(f);
     dump_typedbytes_all(tbf, 0);

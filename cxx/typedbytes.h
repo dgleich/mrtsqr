@@ -264,6 +264,7 @@ public:
     }
     
     bool read_string(std::string& str) {
+        typedbytes_check_type_code(TypedBytesString);
         typedbytes_length len = _read_length();
         str.resize(len);
         assert(len >= 0);
