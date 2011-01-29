@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "typedbytes.h"
+#include "sparfun_util.h"
 
 /** Write a message to stderr
  */
@@ -50,6 +51,55 @@ void hadoop_status(const char* format, ...) {
 
 void hadoop_counter(const char* name, int val) {
     fprintf(stderr, "reporter:counter:Program,%s,%i\n", name, val);
+}
+
+extern "C" {
+void dgeqrf_(int *m, int *n, double *a, int *lda, double *tau,
+    double *work, int *lwork, int *info);
+}    
+
+/** Run a LAPACK qr with local memory allocation.
+ * @param nrows the number of rows of A allocated
+ * @param ncols the number of columns of A allocated
+ * @param urows the number of rows of A used.
+ * In LAPACK parlance, nrows is the stride, and urows is
+ * the size
+ */
+bool lapack_qr(double* A, size_t nrows, size_t ncols, size_t urows)
+{
+    int info = -1;
+    int n = ncols;
+    int m = urows;
+    int stride = nrows;
+    int minsize = std::min(urows,ncols);
+    
+    // allocate space for tau's
+    std::vector<double> tau(minsize);
+    
+    // do a workspace query
+    double worksize;
+    int lworkq = -1;
+    
+    
+    dgeqrf_(&m, &n, A, &stride, &tau[0], &worksize, &lworkq, &info);
+    if (info == 0) {
+        int lwork = (int)worksize;
+        std::vector<double> work(lwork);
+        dgeqrf_(&m, &n, A, &stride, &tau[0], &work[0], &lwork, &info);
+        if (info == 0) {
+            // zero out the lower triangle of A
+            size_t rsize = (size_t)minsize;
+            for (size_t j=0; j<rsize; ++j) {
+                for (size_t i=j+1; i<rsize; ++i) {
+                    A[i+j*nrows] = 0.;
+                }
+            }
+            return true;
+        }
+    } else {
+        return false;
+    }
+    
 }
 
 class SerialTSQR {
@@ -157,15 +207,15 @@ public:
     
     // compress the local QR factorization
     void compress() {
-        // TEMP
-        // just sum squared
-        // for all columns
-        for (size_t j = 0; j<ncols; ++j) {
-            for (size_t i=0; i<currows; ++i) {
-                tempval += local[i + j*nrows]*local[i + j*nrows];
-            }
+        // compute a QR factorization
+        if (lapack_qr(&local[0], nrows, ncols, currows)) {
+        } else {
+            hadoop_message("lapack error\n");
+            exit(-1);
         }
-        currows = 0;
+        if (ncols < currows) {
+            currows = ncols;
+        }
     }
     
     void mapper() {
@@ -193,12 +243,17 @@ public:
         output();
     }
     
-    // output 
+    /** Output the matrix with random keys for the rows.
+     */
     void output() {
-        // TEMP
-        // just write total value
-        out.write_long(0);
-        out.write_double(tempval);
+        for (size_t i=0; i<currows; ++i) {
+            int rand_int = sf_randint(0,2000000000);
+            out.write_int(rand_int);
+            out.write_vector_start(ncols);
+            for (size_t j=0; j<ncols; ++j) {
+                out.write_double(local[i+j*nrows]);
+            }
+        }
     }
     
 };
@@ -216,6 +271,10 @@ void usage() {
 
 int main(int argc, char** argv) 
 {  
+    // initialize the random number generator
+    unsigned long seed = sf_randseed();
+    hadoop_message("seed = %u\n", seed);
+    
     // create typed bytes files
     TypedBytesInFile in(stdin);
     TypedBytesOutFile out(stdout);
@@ -228,7 +287,7 @@ int main(int argc, char** argv)
     if (strcmp(operation,"map")==0) {
         raw_mapper(in, out);
     } else if (strcmp(operation,"reduce") == 0) {
-        // reducer
+        raw_mapper(in, out);
     } else {
         usage();
     }

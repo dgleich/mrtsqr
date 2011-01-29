@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
 #if defined(__GNUC__) && __GNUC__ >= 2
 #include <byteswap.h>
