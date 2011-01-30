@@ -59,6 +59,7 @@ def first_mapper(data):
             'step %i/%i: generating local %i-by-%i Q matrix'%(i+1,k,n,n))
         
         Q = numpy.linalg.qr(numpy.random.randn(n,n))[0] # just the Q factor
+        util.setstatus('step %i/%i: multiplying local matrix'%(i+1,k))
         A = Q.dot(R)
         util.setstatus('step %i/%i: outputting %i rows'%(i+1,k,A.shape[0]))
         for row in A:
@@ -157,8 +158,8 @@ def starter(prog):
     prog.addopt('inputformat','gov.sandia.dfgleic.NullInputFormat')
     
     prog.addopt('jobconf','mapred.output.compress=true')
-    prog.adoopt('jobconf','com.hadoop.compression.lzo.LzoCodec')
-    prog.adoopt('jobconf','com.hadoop.compression.lzo.LzoCodec')
+    prog.addopt('jobconf','mapred.output.compress.codec=com.hadoop.compression.lzo.LzoCodec')
+    prog.addopt('jobconf','fs.local.block.size='+str(int(1024*1024*256)))
 
 
 def runner(job):
