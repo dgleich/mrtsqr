@@ -95,6 +95,8 @@ bool lapack_qr(double* A, size_t nrows, size_t ncols, size_t urows)
                 }
             }
             return true;
+        } else {
+            return false;
         }
     } else {
         return false;
@@ -208,7 +210,10 @@ public:
     // compress the local QR factorization
     void compress() {
         // compute a QR factorization
+        double t0 = sf_time();
         if (lapack_qr(&local[0], nrows, ncols, currows)) {
+            double dt = sf_time() - t0;
+            hadoop_counter("lapack time (millisecs)", (int)(dt*1000.));
         } else {
             hadoop_message("lapack error\n");
             exit(-1);
@@ -249,23 +254,25 @@ public:
         for (size_t i=0; i<currows; ++i) {
             int rand_int = sf_randint(0,2000000000);
             out.write_int(rand_int);
-            out.write_vector_start(ncols);
+            //out.write_vector_start(ncols);
+            out.write_list_start();
             for (size_t j=0; j<ncols; ++j) {
                 out.write_double(local[i+j*nrows]);
             }
+            out.write_list_end();
         }
     }
     
 };
 
-void raw_mapper(TypedBytesInFile& in, TypedBytesOutFile& out) 
+void raw_mapper(TypedBytesInFile& in, TypedBytesOutFile& out, size_t blocksize)
 {
-    SerialTSQR map(in, out, 3);
+    SerialTSQR map(in, out, blocksize);
     map.mapper();
 }
 
 void usage() {
-    fprintf(stderr, "usage: tsqr [map|reduce]\n");
+    fprintf(stderr, "usage: tsqr map|reduce [blocksize]\n");
     exit(-1);
 }
 
@@ -283,11 +290,22 @@ int main(int argc, char** argv)
         usage();
     }
     
+    size_t blocksize = 3;
+    if (argc > 2) {
+        int bs = atoi(argv[2]);
+        if (bs <= 0) {
+            fprintf(stderr, 
+              "Error: blocksize \'%s\' is not a positive integer\n",
+              argv[2]);
+        }
+        blocksize = (size_t)bs;
+    }
+    
     char* operation = argv[1];
     if (strcmp(operation,"map")==0) {
-        raw_mapper(in, out);
+        raw_mapper(in, out, blocksize);
     } else if (strcmp(operation,"reduce") == 0) {
-        raw_mapper(in, out);
+        raw_mapper(in, out, blocksize);
     } else {
         usage();
     }
