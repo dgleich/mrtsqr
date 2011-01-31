@@ -44,6 +44,11 @@ Usage
         will first use an identity map-reduce operation to spread the
         data over the cluster.  This will increase the number of mappers
         at the next stage, which can dramatically increase speed.
+        
+      -split_size <int> : the size of splits sent to mappers.  Increasing
+        this value reduces the number of mappers launched for large 
+        problems.  The default split_size is the HDFS block size 
+        (dfs.block.size).  The size of the split is in bytes.
     
 History
 -------
@@ -55,6 +60,7 @@ __author__ = 'David F. Gleich'
 import sys
 import os
 import random
+import time
 
 import numpy
 import numpy.linalg
@@ -102,7 +108,10 @@ class SerialTSQR():
         
     def compress(self):
         """ Compute a QR factorization on the data accumulated so far. """
+        t0 = time.time()
         R = self.QR()
+        dt = time.time() - t0
+        hadoopy.counter('Timer','numpy time (millisecs)',int(1000*dt))
         
         # reset data and re-initialize to R
         self.data = []
@@ -176,7 +185,13 @@ def starter(args, launch=True):
     outputnamefunc = lambda x: output+"_iter%i"%(x)
     steps = schedule.split(',')
     
-    jobconfs = ['mapred.output.compress=true']
+    jobconfs = []
+    
+    # determine the split size
+    if 'split_size' in args:
+        splitsize = args['split_size']
+        jobconfs.append(
+            'mapreduce.input.fileinputformat.split.minsize='+str(splitsize))
     
         
     for i,step in enumerate(steps):
@@ -194,7 +209,8 @@ def starter(args, launch=True):
             
         if launch:
             hadoopy.launch_frozen(input, curoutput, __file__, 
-                cmdenvs=gopts.cmdenv(), num_reducers=int(step))
+                cmdenvs=gopts.cmdenv(), num_reducers=int(step),
+                jobconfs=jobconfs)
     
     
 def runner():
