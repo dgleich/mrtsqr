@@ -17,6 +17,12 @@ dumbo start ../dumbo/generate_test_problems.py \
   -nrows 500000000 -ncols 100 \
   -maprows  500000 -maxlocal 200 \
   -nstages 3 -overwrite yes
+  
+dumbo start ../dumbo/generate_test_problems.py \
+  -output tsqr-mr/test/mat-500g-500.mseq \
+  -nrows 100000000 -ncols 500 \
+  -maprows  100000 -maxlocal 1000 \
+  -nstages 3 -overwrite yes  
 
 dumbo start ../dumbo/generate_test_problems.py \
   -output tsqr-mr/test/mat-500g-1000.mseq \
