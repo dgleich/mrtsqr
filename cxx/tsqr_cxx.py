@@ -17,7 +17,6 @@ Todo
 ----
 * Add code to find hadoop
 * Add code to find hadoop streaming
-* Add reduce schedule
 * Handle directory offset
 * Handle updating tsqr executable
 """
@@ -63,8 +62,8 @@ if __name__=='__main__':
         
     jobname = 'tsqr_cxx ' + matname
     
-    if 'block_size' in args:
-        blocksize = int(args['block_size'])
+    if 'blocksize' in args:
+        blocksize = int(args['blocksize'])
     else:
         blocksize = 3
 
@@ -79,27 +78,41 @@ if __name__=='__main__':
     hadoop_args.extend(['-reducer', "'./tsqr reduce %i'"%(blocksize)])
     hadoop_args.extend(['-outputformat', "'org.apache.hadoop.mapred.SequenceFileOutputFormat'"])
     hadoop_args.extend(['-inputformat', "'org.apache.hadoop.streaming.AutoInputFormat'"])
-    
-    
-    # now we would handle the reduce schedule, or whatever else is
-    hadoop_args.extend(['-jobconf',"'mapreduce.job.name="+jobname+"'"])
-    hadoop_args.extend(['-input',"'"+input+"'"])
-    hadoop_args.extend(['-output',"'"+output+"'"])
-    
-    cmd = ['hadoop','jar',streaming_jar]
-    cmd.extend(hadoop_args)
-    
-    print "Running Hadoop Command:"
-    print
-    print ' '.join(cmd) 
-    print
-    print "End Hadoop Command"
-    
-                
-    if hadoopy.exists(output):
-        print "Removing %s"%(output)
-        hadoopy.rm(output)
 
-    subprocess.check_call(' '.join(cmd),shell=True)
+    # now we would handle the reduce schedule, or whatever else is
+    schedule = args.get('reduce_schedule','1')
+    steps = schedule.split(',')
+    steps = [int(s) for s in steps]
+    
+    for i,step in enumerate(steps):
+        if i>0:
+            input = curoutput
+            
+        if i+1==len(steps):
+            curoutput = output
+        else:
+            curoutput = output+"_iter%i"%(i+1)
+            
+        cur_args = [arg for arg in hadoop_args]
+        cur_args.extend(['-jobconf',"'mapreduce.job.name="+jobname+
+            " (%i/%i)'"%(i+1,len(steps))])
+        cur_args.extend(['-input',"'"+input+"'"])
+        cur_args.extend(['-output',"'"+curoutput+"'"])
+        cur_args.extend(['-numReduceTasks', "'%i'"%(int(step))])
+    
+        cmd = ['hadoop','jar',streaming_jar]
+        cmd.extend(cur_args)
+    
+        print "Running Hadoop Command:"
+        print
+        print ' '.join(cmd) 
+        print
+        print "End Hadoop Command"
+        
+        if hadoopy.exists(curoutput):
+            print "Removing %s"%(curoutput)
+            hadoopy.rm(curoutput)
+
+        subprocess.check_call(' '.join(cmd),shell=True)
 
 

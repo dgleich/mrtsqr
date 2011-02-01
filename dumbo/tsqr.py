@@ -9,11 +9,13 @@ Implement a tsqr algorithm using dumbo and numpy
 
 import sys
 import os
+import time
+import random
+
 import numpy
 import numpy.linalg
 
 import util
-import random
 
 import dumbo
 import dumbo.backends.common
@@ -51,7 +53,10 @@ class SerialTSQR(dumbo.backends.common.MapRedBase):
         
     def compress(self):
         """ Compute a QR factorization on the data accumulated so far. """
+        t0 = time.time()
         R = self.QR()
+        dt = time.time() - t0
+        self.counters['numpy time (millisecs)'] += int(1000*dt)
         
         # reset data and re-initialize to R
         self.data = []
