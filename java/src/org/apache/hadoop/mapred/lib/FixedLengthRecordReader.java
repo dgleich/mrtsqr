@@ -19,13 +19,28 @@
 package org.apache.hadoop.mapred.lib;
 
 import java.io.IOException;
+import java.io.InputStream;
 
-import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.commons.logging.Log;
+
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.Seekable;
+
+
 
 import org.apache.hadoop.conf.Configuration;
 
 import org.apache.hadoop.mapred.FileSplit;
+
+import org.apache.hadoop.io.compress.CodecPool;
+import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.io.compress.CompressionCodecFactory;
+import org.apache.hadoop.io.compress.Decompressor;
+import org.apache.hadoop.io.compress.SplitCompressionInputStream;
+import org.apache.hadoop.io.compress.SplittableCompressionCodec;
 
 //
 
@@ -39,9 +54,8 @@ import org.apache.hadoop.conf.Configured;
 
 import org.apache.hadoop.mapred.JobConf;
 
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+
+
 import org.apache.hadoop.io.BytesWritable;
 
 import org.apache.hadoop.mapred.ClusterStatus;
@@ -79,7 +93,7 @@ import org.apache.hadoop.mapred.JobContext;
  *
  */
 public class FixedLengthRecordReader 
-    extends RecordReader<BytesWritable, BytesWritable> {
+  implements RecordReader<BytesWritable, BytesWritable> {        
 
   // reference to the logger
   private static final Log LOG = 
@@ -88,14 +102,17 @@ public class FixedLengthRecordReader
   private long start;
   private long pos;
   private long end;
-  private long FSDataInputStream fileInputStream;
+  private InputStream in;
+  private FSDataInputStream fileIn;
   private final Seekable filePosition;
   private int recordLength;
   private int recordKeyStartAt;
   private int recordKeyEndAt;
   private int recordKeyLength;
-  private CompressorCodec codec;
+  private CompressionCodec codec;
   private Decompressor decompressor;
+  
+  private byte[] recordBytes;
 
   // our record key 
   private BytesWritable recordKey = null;
@@ -117,18 +134,14 @@ public class FixedLengthRecordReader
     // record key length (add 1 because the start/end points are INCLUSIVE)
     this.recordKeyLength = recordKeyEndAt - recordKeyStartAt + 1;
     
-
     // log some debug info
-    LOG.info("FixedLengthRecordReader: SPLIT-START="+splitStart + 
-        " SPLIT-END=" +splitEnd + " SPLIT-LENGTH="+fileSplit.getLength() +
+    LOG.info("FixedLengthRecordReader: " + 
         (this.recordKeyStartAt != -1 ? 
         		(" KEY-START-AT=" + this.recordKeyStartAt + 
         		 " KEY-END-AT=" + this.recordKeyEndAt) : 
         		 " NO-CUSTOM-KEY-START/END SPECIFIED, KEY will be record " +
         		 "position in InputSplit"));
                  
-    
-    
     start = split.start();
     end = split.getLength() + start;
     final Path file = split.getPath();
@@ -141,7 +154,39 @@ public class FixedLengthRecordReader
     if (isCompressedInput()) {
       decompressor = CodecPool.getDecompressor(codec);
       if (codec instanceof SplittableCompressionCodec) {
-          final SplitCompressionInputStream cIn = 
+        final SplitCompressionInputStream cIn =
+          ((SplittableCompressionCodec)codec).createInputStream(
+            fileIn, decompressor, start, end,
+            SplittableCompressionCodec.READ_MODE.BYBLOCK); 
+        in = (InputStream)cIn;
+        start = cIn.getAdjustedStart();
+        end = cIn.getAdjustedEnd();
+        filePosition = cIn;
+      } else {
+        in = (InputStream)codec.createInputStream(fileIn, decompressor);
+        filePosition = fileIn;
+      }
+    } else {
+      fileIn.seek(start);
+      in = (InputStream)fileIn;
+      filePosition = fileIn;
+    }
+    
+    if (start != 0) {
+      // seek to the start of the next record.
+      long dist = start % this.recordLength;
+      filePosition.seek(dist);
+      start += dist;
+    }
+    this.pos = start;
+  }
+  
+  public BytesWritable createKey() {
+      return new BytesWritable(new byte[this.recordKeyLength]);
+  }
+  
+  public BytesWritable createValue() {
+      return new BytesWritable(new byte[this.recordLength]);
   }
   
   private boolean isCompressedInput() {
@@ -149,170 +194,99 @@ public class FixedLengthRecordReader
   }
 
   @Override
-  public void close() throws IOException {
-    if (fileInputStream != null) {
-      fileInputStream.close();
+  public synchronized void close() throws IOException {
+    try {
+      if (in != null) {
+        in.close();
+      }
+    } finally {
+      if (decompressor != null) {
+        CodecPool.returnDecompressor(decompressor);
+      }
     }
   }
-
-  @Override
-  public BytesWritable getCurrentKey() throws IOException,
-  InterruptedException {
-    return recordKey;
+  
+  public synchronized long getPos() throws IOException {
+    return pos;
   }
-
-  @Override
-  public BytesWritable getCurrentValue() 
-      throws IOException, InterruptedException {
-    return recordValue;
-  }
-
-  @Override
-  public float getProgress() throws IOException, InterruptedException {
-    if (splitStart == splitEnd) {
-      return (float)0;
+  
+  private long getFilePosition() throws IOException {
+    long retVal;
+    if (isCompressedInput() && null != filePosition) {
+      retVal = filePosition.getPos();
     } else {
-      return Math.min((float)1.0, (currentPosition - splitStart) / 
-          (float)(splitEnd - splitStart));
+      retVal = pos;
+    }
+    return retVal;
+  }
+
+  @Override
+  public synchronized float getProgress() throws IOException, InterruptedException {
+    if (start == end) {
+      return 0.0f;
+    } else {
+      return Math.min(1.0f, (getFilePosition() - start) / 
+          (float)(end-start));
     } 
   }
   
-  
-
-  @Override
-  public void initialize(InputSplit inputSplit, TaskAttemptContext context)
-  throws IOException, InterruptedException {
-
-    // the file input fileSplit
-    FileSplit fileSplit = (FileSplit)inputSplit;
-
-    // the byte position this fileSplit starts at within the splitEnd file
-    splitStart = fileSplit.getStart();
-
-    // splitEnd byte marker that the fileSplit ends at within the splitEnd file
-    splitEnd = splitStart + fileSplit.getLength();
-
-    // the actual file we will be reading from
-    Path file = fileSplit.getPath(); 
-
-    // job configuration
-    Configuration job = context.getConfiguration(); 
-
-    // for updating the total bytes read in 
-    inputByteCounter = 
-      ((MapContext)context).getCounter(FileInputFormat.COUNTER_GROUP, 
-          FileInputFormat.BYTES_READ); 
  
-    // the size of each fixed length record
-    this.recordLength = FixedLengthInputFormat.getRecordLength(job);
-    
-    // the start position for each key
-    this.recordKeyStartAt = FixedLengthInputFormat.getRecordKeyStartAt(job);
-    
-    // the end position for each key
-    this.recordKeyEndAt = FixedLengthInputFormat.getRecordKeyEndAt(job);
-    
-    // record key length (add 1 because the start/end points are INCLUSIVE)
-    this.recordKeyLength = recordKeyEndAt - recordKeyStartAt + 1;
-    
+  /** Read the next record in the input stream. 
+   * @param record an array of recordLength bytes.
+   * */
+  private void readRecord(byte[] record) throws IOException {
+    int totalRead = 0; // total bytes read
+    int totalToRead = recordLength; // total bytes we need to read
 
-    // log some debug info
-    LOG.info("FixedLengthRecordReader: SPLIT-START="+splitStart + 
-        " SPLIT-END=" +splitEnd + " SPLIT-LENGTH="+fileSplit.getLength() +
-        (this.recordKeyStartAt != -1 ? 
-        		(" KEY-START-AT=" + this.recordKeyStartAt + 
-        		 " KEY-END-AT=" + this.recordKeyEndAt) : 
-        		 " NO-CUSTOM-KEY-START/END SPECIFIED, KEY will be record " +
-        		 "position in InputSplit"));
- 
+    // while we still have record bytes to read
+    while(totalRead != recordLength) {
+      // read in what we need
+      int read = this.fileInputStream.read(record, totalRead, totalToRead);
 
-    // get the filesystem
-    final FileSystem fs = file.getFileSystem(job); 
-
-    // open the File
-    fileInputStream = fs.open(file); 
-
-    // seek to the splitStart position
-    fileInputStream.seek(splitStart);
-
-    // set our current position
-    this.currentPosition = splitStart; 
-  }
-
-  @Override
-  public boolean nextKeyValue() throws IOException, InterruptedException {
-
-	// allocate a key
-    if (recordKey == null) {
-      recordKey = new BytesWritable(new byte[this.recordKeyLength]);
-    }
-
-    // the recordValue to place the record text in
-    if (recordValue == null) {
-      recordValue = new BytesWritable(new byte[this.recordLength]);
-    }
-    
-    // the byte buffer we will store data in
-    byte[] valueBytes = recordValue.getBytes();
-    
-    // the current position before we start moving forward
-    long thisStartingPosition = currentPosition;
-
-    // if the currentPosition is less than the split end..
-    if (currentPosition < splitEnd) {
-
-      int totalRead = 0; // total bytes read
-      int totalToRead = recordLength; // total bytes we need to read
-
-      // while we still have record bytes to read
-      while(totalRead != recordLength) {
-        // read in what we need
-        int read = this.fileInputStream.read(valueBytes, totalRead, totalToRead);
-
-        /* EOF? this is an error because each 
-         * split calculated by FixedLengthInputFormat
-         * contains complete records, if we receive 
-         * an EOF within this loop, then we have
-         * only read a partial record as totalRead != recordLength
-         */
-        if (read == -1) {
-        	throw new IOException("FixedLengthRecordReader, " +
-        	        " unexpectedly encountered an EOF when attempting" +
-        			" to read in an entire record from the current split");
-        }
-        
-        // read will never be zero, because read is only
-        // zero if you pass in zero to the read() call above
-
-        // update our markers
-        totalRead += read;
-        totalToRead -= read;
+      /* EOF? this is an error because each 
+       * split calculated by FixedLengthInputFormat
+       * contains complete records, if we receive 
+       * an EOF within this loop, then we have
+       * only read a partial record as totalRead != recordLength
+       */
+      if (read == -1) {
+          throw new IOException("FixedLengthRecordReader, " +
+                  " unexpectedly encountered an EOF when attempting" +
+                  " to read in an entire record from the current split");
       }
+    
+      // read will never be zero, because read is only
+      // zero if you pass in zero to the read() call above
 
-      // update our current position and log the input bytes
-      currentPosition = currentPosition +recordLength;
-      inputByteCounter.increment(recordLength);
-
-      // Determine the KEY value
-      // if recordKeyStartAt and recordKeyEndAt are not the defaults (not set)
-      // the use that as the key
+      // update our markers
+      totalRead += read;
+      totalToRead -= read;
+    }
+  }
+  
+  @Override
+  public synchronized boolean next(BytesWritable key, BytesWritable value)
+    throws IOException {
+    
+    while (getFilePosition() <= end) {
+      this.readRecord(value.getBytes());
+      pos += recordLength;
+      
       if (recordKeyStartAt != -1 && recordKeyEndAt != -1) {
-      	recordKey.set(recordValue.getBytes(), this.recordKeyStartAt, this.recordKeyLength);
+      	key.set(recordValue.getBytes(), this.recordKeyStartAt, this.recordKeyLength);
       	
       // otherwise do the default action, (key is record position in the split)
       } else {
       	// default is that the the Key is the position the record started at
-        byte[] posKey = toBytes(thisStartingPosition);
-      	recordKey.set(posKey,0,posKey.length);
+        byte[] posKey = toBytes(pos);
+      	key.set(posKey,0,posKey.length);
       }
       
-      return true;             
+      return true;
     }
-
-    // nothing more to read....
+    
     return false;
   }
-
   
   public static byte[] toBytes(long val) {
     byte [] b = new byte[8];

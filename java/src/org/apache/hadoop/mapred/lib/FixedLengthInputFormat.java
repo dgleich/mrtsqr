@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.mapred.FileInputFormat;
 
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
@@ -264,12 +265,12 @@ public class FixedLengthInputFormat
    * @inheritDoc
    */
   @Override
-  public RecordReader<BytesWritable, BytesWritable> createRecordReader(
+  public RecordReader<BytesWritable, BytesWritable> getRecordReader(
     InputSplit split, JobConf job, Reporter reporter) 
     throws IOException, InterruptedException {
     return new FixedLengthRecordReader(job,(FileSplit)split);
   }
-
+  
   /**
    * Validates that a valid FIXED_RECORD_LENGTH config property
    * has been set and if so, returns the splits. If the FIXED_RECORD_LENGTH
