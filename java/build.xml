@@ -8,7 +8,9 @@
 
   <path id="classpath">
     <pathelement location="/home/mrhadoop/hadoop/hadoop-common-0.21.0.jar" />
-    <pathelement location="/home/mrhadoop/hadoop/hadoop-mapred-0.21.0.jar" />   
+    <pathelement location="/home/mrhadoop/hadoop/hadoop-mapred-0.21.0.jar" />  
+    <pathelement location="/home/mrhadoop/hadoop/lib/commons-logging-1.1.1.jar" /> 
+    <pathelement location="/home/mrhadoop/hadoop/lib/commons-logging-api-1.1.jar" /> 
    </path>
 
   <target name="compile">

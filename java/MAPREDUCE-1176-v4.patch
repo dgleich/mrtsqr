@@ -1,0 +1,1183 @@
+Index: src/test/mapred/org/apache/hadoop/mapreduce/lib/input/TestFixedLengthInputFormat.java
+===================================================================
+--- src/test/mapred/org/apache/hadoop/mapreduce/lib/input/TestFixedLengthInputFormat.java	(revision 0)
++++ src/test/mapred/org/apache/hadoop/mapreduce/lib/input/TestFixedLengthInputFormat.java	(revision 0)
+@@ -0,0 +1,507 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapreduce.lib.input;
++
++import java.io.ByteArrayInputStream;
++import java.io.DataInputStream;
++import java.io.IOException;
++import java.io.OutputStream;
++import java.io.OutputStreamWriter;
++import java.io.Writer;
++import java.util.BitSet;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Random;
++
++import org.apache.commons.logging.*;
++import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.fs.*;
++import org.apache.hadoop.io.*;
++import org.apache.hadoop.io.compress.*;
++import org.apache.hadoop.mapreduce.InputSplit;
++import org.apache.hadoop.mapreduce.Job;
++import org.apache.hadoop.mapreduce.MapContext;
++import org.apache.hadoop.mapreduce.MapReduceTestUtil;
++import org.apache.hadoop.mapreduce.RecordReader;
++import org.apache.hadoop.mapreduce.TaskAttemptContext;
++import org.apache.hadoop.mapreduce.lib.input.FixedLengthInputFormat;
++import org.apache.hadoop.mapreduce.task.MapContextImpl;
++
++import org.apache.hadoop.util.ReflectionUtils;
++
++import org.junit.Test;
++import java.util.*;
++import static junit.framework.Assert.*;
++
++import org.apache.commons.logging.Log;
++import org.apache.commons.logging.LogFactory;
++
++
++public class TestFixedLengthInputFormat {
++
++  private static final Log LOG = 
++    LogFactory.getLog(TestFixedLengthInputFormat.class.getName());
++
++  private static Configuration defaultConf = new Configuration();
++
++  private static FileSystem localFs = null; 
++
++  static {
++    try {
++      defaultConf.set("fs.defaultFS", "file:///");
++      localFs = FileSystem.getLocal(defaultConf);
++      // our set of chars
++      chars = ("abcdefghijklmnopqrstuvABCDEFGHIJKLMN OPQRSTUVWXYZ1234567890)(*&^%$#@!-=><?:\"{}][';/.,']").toCharArray();
++    } catch (IOException e) {
++      throw new RuntimeException("init failure", e);
++    }
++  }
++
++  private static Path workDir = 
++    new Path(new Path(System.getProperty("test.build.data", "."), "data"),
++        "TestKeyValueFixedLengthInputFormat");
++
++
++  // some chars for the record data
++  private static char[] chars;
++  private static Random charRand = new Random();
++
++
++  // each test file contains records of total bytes length
++  // each record starts with the ! char and ends with the ! char for testing
++  // and record start/end verification, this returns a Map of the record position
++  // pointing to the value @ that position. This Map is to be used in conjuction
++  // with the test that uses the DEFAULT KEY configuration of FixedLengthInputFormat
++  // (which is the record start position in the InputSplit)
++  private Map<Long,String> writeDefaultKeyDummyFile(Path targetFile, int totalBytes, 
++      int recordLen) throws Exception {
++
++    Map<Long,String> valMap = new HashMap<Long,String>();
++
++    // create a file X records
++    Writer writer = new OutputStreamWriter(localFs.create(targetFile));
++    try {
++      long recordBytesWritten = 0;
++      long lastRecordStart = 0;
++      StringBuffer sb = new StringBuffer();
++      for (int i = 0; i < totalBytes; i++) {
++
++
++        recordBytesWritten++;
++
++        if (i==lastRecordStart) {
++          sb.append('!'); // start of a record 
++        } else if (recordBytesWritten==recordLen) {
++          sb.append('!'); // end of a record
++        } else {
++          // filler
++          sb.append(chars[charRand.nextInt(chars.length)]);
++        }
++
++        if (recordBytesWritten == recordLen) {
++          valMap.put(lastRecordStart,sb.toString());
++        //  LOG.info("KEY=" + lastRecordStart + 
++       //           " VALUE=" +sb.toString());
++          writer.write(sb.toString());
++          sb = new StringBuffer();
++          lastRecordStart = i+1;
++          recordBytesWritten=0;
++        }
++
++
++      }
++    } finally {
++      writer.close();
++    }
++
++    return valMap;
++  }
++  
++  // each test file contains records of total bytes length
++  // each record starts with the ! char and ends with the ! char for testing
++  // and record start/end verification, this returns a Map of the custom KEY
++  // which maps to the value @ that key. This Map is to be used in conjuction
++  // with the test that uses the CUSTOM KEY configuration of FixedLengthInputFormat
++  // (which defines the key by the byte start/end positions)
++  private Map<String,String> writeCustomKeyDummyFile(Path targetFile, int totalBytes, 
++      int recordLen, int keyStartAt, int keyEndAt) throws Exception {
++
++    Map<String,String> valMap = new HashMap<String,String>();
++
++    // create a file X records
++    Writer writer = new OutputStreamWriter(localFs.create(targetFile));
++    try {
++      long recordBytesWritten = 0;
++      long lastRecordStart = 0;
++      StringBuffer sb = new StringBuffer();
++      for (int i = 0; i < totalBytes; i++) {
++
++
++        recordBytesWritten++;
++
++        // filler
++        sb.append(chars[charRand.nextInt(chars.length)]);
++
++
++        if (recordBytesWritten == recordLen) {
++          String value = sb.toString();
++          String key = value.substring(keyStartAt,keyEndAt+1);
++          valMap.put(key,sb.toString());
++          //LOG.info("CUSTOMKEY=" + key + 
++          //        " VALUE=" +sb.toString());
++          writer.write(sb.toString());
++          sb = new StringBuffer();
++          lastRecordStart = i+1;
++          recordBytesWritten=0;
++        }
++
++
++      }
++    } finally {
++      writer.close();
++    }
++
++    return valMap;
++  }
++
++  @Test
++  public void testSplitSizesWithDefaultKeys() throws Exception {
++    Path file = new Path(workDir, "testSplitSizesWithDefaultKeys.txt");
++
++    int seed = new Random().nextInt();
++    LOG.info("seed = " + seed);
++    Random random = new Random(seed);
++
++    localFs.delete(workDir, true);
++
++    // try 20 random tests of various record/size, total record combinations
++    // to verify split rules
++    int MAX_TESTS = 20;
++    for (int i = 0; i < MAX_TESTS; i++) {
++
++      LOG.info("----------------------------------------------------------");
++
++      // max total records of 999
++      int TOTAL_RECORDS = random.nextInt(999)+1; // avoid 0
++      
++      // max bytes in a record of 100K
++      int RECORD_LENGTH = random.nextInt(1024*100)+1; // avoid 0
++      
++      // for the 11th test, force a record length of 1
++      if (i == 10) {
++        RECORD_LENGTH = 1;
++      }
++
++      // the total bytes in the test file
++      int FILE_SIZE = (TOTAL_RECORDS * RECORD_LENGTH);
++
++
++      LOG.info("TOTAL_RECORDS=" + TOTAL_RECORDS + 
++          " RECORD_LENGTH=" +RECORD_LENGTH);
++
++      // write the test file
++      Map<Long,String> valMap = writeDefaultKeyDummyFile(file,FILE_SIZE,RECORD_LENGTH);
++
++      // verify exists
++      assertTrue(localFs.exists(file));
++
++
++      // set the fixed length record length config property 
++      Configuration testConf = new Configuration(defaultConf);
++      testConf.setInt(FixedLengthInputFormat.FIXED_RECORD_LENGTH, RECORD_LENGTH);
++
++      // arbitrarily set the maxSplitSize, for the FIRST test use the default split size
++      // then all subsequent tests pick a split size that is random. For the LAST test
++      // lets test a split size that is LESS than the record length itself...
++      if (i>0) {
++        long maxSplitSize = 0;
++
++        if (i == (MAX_TESTS-1)) {
++          // test a split size that is less than record len
++          maxSplitSize = (long)Math.floor(RECORD_LENGTH /2);
++
++        } else if (i > 0) {
++
++          if (MAX_TESTS % i == 0) {
++            // lets create a split size that is forced to be 
++            // smaller than the end file itself, (ensures 1+ splits)
++            maxSplitSize = (FILE_SIZE - random.nextInt(FILE_SIZE));
++
++          } else {
++            // just pick a random split size with no upper bound 
++            maxSplitSize = random.nextInt(Integer.MAX_VALUE);
++          }
++
++        }
++
++
++        testConf.setLong("mapreduce.input.fileinputformat.split.maxsize", 
++            maxSplitSize);
++        LOG.info("max split size forced to :" +maxSplitSize);
++      }
++
++
++      // create the job, and setup the input path
++      Job job = new Job(testConf);
++      FileInputFormat.setInputPaths(job, workDir);
++
++
++      // try splitting the file in a variety of sizes
++      FixedLengthInputFormat format = new FixedLengthInputFormat();
++
++      List<InputSplit> splits = format.getSplits(job);
++      LOG.info("TOTAL SPLITS = " + splits.size());
++
++
++      // test combined split lengths = total file size
++      long totalSize = 0;
++      long totalRecords = 0;
++      for (InputSplit split : splits) {
++        // total size
++        totalSize+=split.getLength();
++
++        // careate dummy context
++        TaskAttemptContext context = 
++          MapReduceTestUtil.createDummyMapTaskAttemptContext(job.getConfiguration());
++
++        // get the record reader
++        RecordReader<BytesWritable, BytesWritable> reader = 
++          format.createRecordReader(split, context);
++        MapContext<BytesWritable, BytesWritable, BytesWritable, BytesWritable> mcontext = 
++          new MapContextImpl<BytesWritable, BytesWritable, BytesWritable, BytesWritable>(
++              job.getConfiguration(), context.getTaskAttemptID(), reader, 
++              null, null, MapReduceTestUtil.createDummyReporter(), split);
++        reader.initialize(split, mcontext);
++
++        // verify the correct class
++        Class<?> clazz = reader.getClass();
++        assertEquals("RecordReader class is FixedLengthRecordReader.", 
++            FixedLengthRecordReader.class, clazz);
++
++        // plow through the records in this split
++        while (reader.nextKeyValue()) {
++          BytesWritable key = reader.getCurrentKey();
++          byte[] value = reader.getCurrentValue().getBytes();
++          String valueStr = new String(value);
++          assertEquals("Record length is correct",RECORD_LENGTH,value.length);
++
++          assertEquals("Record starts with char [!]",'!',valueStr.charAt(0));
++          assertEquals("Record ends with char [!]",'!',valueStr.charAt(RECORD_LENGTH-1));
++
++          byte[] keyBytes = key.getBytes();
++          long longKey = toLong(keyBytes);
++          //LOG.info("READ IN KEY = "+ longKey + " from " + keyBytes.length +" " +keyBytes);
++          String origRecord = valMap.get(longKey);
++          assertNotNull("Orig record found in map by key " +longKey,origRecord);
++          assertEquals("Orig record, matches read-in record",
++              origRecord,new String(value));
++
++          totalRecords++;
++        }
++
++        reader.close();
++
++
++
++      }
++      assertEquals("Total original records = total read records",
++          valMap.size(),totalRecords);
++      assertEquals("Total length of combined splits is correct:",
++          FILE_SIZE,totalSize);
++
++    }
++    
++  }
++  
++  @Test
++  public void testSplitSizesWithCustomKeys() throws Exception {
++    Path file = new Path(workDir, "testSplitSizesWithCustomKeys.txt");
++
++    int seed = new Random().nextInt();
++    LOG.info("seed = " + seed);
++    Random random = new Random(seed);
++
++    localFs.delete(workDir, true);
++
++    // try 20 random tests of various record/size, total record combinations
++    // to verify split rules, + specify custom keys
++    int MAX_TESTS = 20;
++    for (int i = 0; i < MAX_TESTS; i++) {
++
++      LOG.info("----------------------------------------------------------");
++
++      // max total records of 99
++      int TOTAL_RECORDS = random.nextInt(99)+1; // avoid 0
++      
++      // max bytes in a record of 25K
++      int RECORD_LENGTH = random.nextInt(1024*25)+1; // avoid 0
++      
++      // custom key start (somewhere between 1 and length/2)
++      int KEY_START_AT = (RECORD_LENGTH==1 ? 1 : random.nextInt(RECORD_LENGTH/2)+1);
++      
++      // custom key end at
++      int KEY_END_AT = KEY_START_AT + random.nextInt(RECORD_LENGTH-KEY_START_AT);
++
++      // the total bytes in the test file
++      int FILE_SIZE = (TOTAL_RECORDS * RECORD_LENGTH);
++
++
++      LOG.info("TOTAL_RECORDS=" + TOTAL_RECORDS + 
++          " RECORD_LENGTH=" +RECORD_LENGTH +
++          " KEY START=" + KEY_START_AT +
++          " KEY END=" + KEY_END_AT);
++
++      // write the test file
++      Map<String,String> valMap = writeCustomKeyDummyFile(file,FILE_SIZE,RECORD_LENGTH,KEY_START_AT,KEY_END_AT);
++      while(valMap.size() != TOTAL_RECORDS) {
++    	  // if the length is not = total, then we have duplicate keys created, try again...
++    	  valMap = writeCustomKeyDummyFile(file,FILE_SIZE,RECORD_LENGTH,KEY_START_AT,KEY_END_AT);
++      }
++
++      // verify exists
++      assertTrue(localFs.exists(file));
++
++
++      // set the fixed length record length config property 
++      Configuration testConf = new Configuration(defaultConf);
++      testConf.setInt(FixedLengthInputFormat.FIXED_RECORD_LENGTH, RECORD_LENGTH);
++      
++      // set the key/start/end at
++      testConf.setInt(FixedLengthInputFormat.FIXED_RECORD_KEY_START_AT, KEY_START_AT);
++      testConf.setInt(FixedLengthInputFormat.FIXED_RECORD_KEY_END_AT, KEY_END_AT);
++
++      // arbitrarily set the maxSplitSize, for the FIRST test use the default split size
++      // then all subsequent tests pick a split size that is random. For the LAST test
++      // lets test a split size that is LESS than the record length itself...
++      if (i>0) {
++        long maxSplitSize = 0;
++
++        if (i == (MAX_TESTS-1)) {
++          // test a split size that is less than record len
++          maxSplitSize = (long)Math.floor(RECORD_LENGTH /2);
++
++        } else if (i > 0) {
++
++          if (MAX_TESTS % i == 0) {
++            // lets create a split size that is forced to be 
++            // smaller than the end file itself, (ensures 1+ splits)
++            maxSplitSize = (FILE_SIZE - random.nextInt(FILE_SIZE));
++
++          } else {
++            // just pick a random split size with no upper bound 
++            maxSplitSize = random.nextInt(Integer.MAX_VALUE);
++          }
++
++        }
++
++
++        testConf.setLong("mapreduce.input.fileinputformat.split.maxsize", 
++            maxSplitSize);
++        LOG.info("max split size forced to :" +maxSplitSize);
++      }
++
++
++      // create the job, and setup the input path
++      Job job = new Job(testConf);
++      FileInputFormat.setInputPaths(job, workDir);
++
++
++      // try splitting the file in a variety of sizes
++      FixedLengthInputFormat format = new FixedLengthInputFormat();
++
++      List<InputSplit> splits = format.getSplits(job);
++      LOG.info("TOTAL SPLITS = " + splits.size());
++
++
++      // test combined split lengths = total file size
++      long totalSize = 0;
++      long totalRecords = 0;
++      for (InputSplit split : splits) {
++        // total size
++        totalSize+=split.getLength();
++
++        // careate dummy context
++        TaskAttemptContext context = 
++          MapReduceTestUtil.createDummyMapTaskAttemptContext(job.getConfiguration());
++
++        // get the record reader
++        RecordReader<BytesWritable, BytesWritable> reader = 
++          format.createRecordReader(split, context);
++        MapContext<BytesWritable, BytesWritable, BytesWritable, BytesWritable> mcontext = 
++          new MapContextImpl<BytesWritable, BytesWritable, BytesWritable, BytesWritable>(
++              job.getConfiguration(), context.getTaskAttemptID(), reader, 
++              null, null, MapReduceTestUtil.createDummyReporter(), split);
++        reader.initialize(split, mcontext);
++
++        // verify the correct class
++        Class<?> clazz = reader.getClass();
++        assertEquals("RecordReader class is FixedLengthRecordReader.", 
++            FixedLengthRecordReader.class, clazz);
++
++        // plow through the records in this split
++        while (reader.nextKeyValue()) {
++          BytesWritable key = reader.getCurrentKey();
++          byte[] value = reader.getCurrentValue().getBytes();
++          String valueStr = new String(value);
++          assertEquals("Record length is correct",RECORD_LENGTH,value.length);
++
++
++          byte[] keyBytes = key.getBytes();
++          String keyStr = new String(keyBytes);
++          //LOG.info("READ IN KEY = "+ longKey + " from " + keyBytes.length +" " +keyBytes);
++          String origRecord = valMap.get(keyStr);
++          assertNotNull("Orig record found in map by key " +keyStr,origRecord);
++          assertEquals("Orig record, matches read-in record",
++              origRecord,new String(value));
++
++          totalRecords++;
++        }
++
++        reader.close();
++
++
++
++      }
++      assertEquals("Total original records = total read records",
++          valMap.size(),totalRecords);
++      assertEquals("Total length of combined splits is correct:",
++          FILE_SIZE,totalSize);
++
++    }
++    
++  }
++  
++  private long toLong(byte[] bytes) {
++	  int offset =0;
++	  int length = (Long.SIZE/Byte.SIZE);
++	  int SIZEOFLONG = (Long.SIZE/Byte.SIZE);
++	  
++      if (bytes == null || length !=  SIZEOFLONG ||
++        (offset + length > bytes.length)) {
++        return -1L;
++      }
++      long l = 0;
++      for(int i = offset; i < (offset + length); i++) {
++        l <<= 8;
++        l ^= (long)bytes[i] & 0xFF;
++      }
++      return l;
++    } 
++
++}
+Index: src/java/org/apache/hadoop/mapreduce/lib/input/FixedLengthRecordReader.java
+===================================================================
+--- src/java/org/apache/hadoop/mapreduce/lib/input/FixedLengthRecordReader.java	(revision 0)
++++ src/java/org/apache/hadoop/mapreduce/lib/input/FixedLengthRecordReader.java	(revision 0)
+@@ -0,0 +1,279 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapreduce.lib.input;
++
++import java.io.IOException;
++
++import org.apache.commons.logging.Log;
++import org.apache.commons.logging.LogFactory;
++import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.fs.FSDataInputStream;
++import org.apache.hadoop.fs.FileSystem;
++import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.io.BytesWritable;
++import org.apache.hadoop.io.compress.CompressionCodec;
++import org.apache.hadoop.io.compress.CompressionCodecFactory;
++import org.apache.hadoop.mapreduce.Counter;
++import org.apache.hadoop.mapreduce.InputSplit;
++import org.apache.hadoop.mapreduce.MapContext;
++import org.apache.hadoop.mapreduce.RecordReader;
++import org.apache.hadoop.mapreduce.TaskAttemptContext;
++
++
++/**
++ * 
++ * FixedLengthRecordReader is returned by FixedLengthInputFormat. This reader
++ * uses the record length property set within the FixedLengthInputFormat to 
++ * read one record at a time from the given InputSplit. This record reader
++ * does not support compressed files.<BR><BR>
++ * 
++ * Each call to nextKeyValue() updates the LongWritable KEY and BytesWritable 
++ * VALUE.<BR><BR>
++ * 
++ * KEY = (BytesWritable) The KEY is the either the record position (Long as a byte array)
++ * within the  InputSplit OR the bytes located between the FixedLengthInputFormat.FIXED_RECORD_KEY_START_AT
++ * and FixedLengthInputFormat.FIXED_RECORD_KEY_END_AT property values, if set
++ * by the caller when the job was configured.<BR><BR>
++ * 
++ * VALUE = the record itself (BytesWritable)
++ * 
++ * @see FixedLengthInputFormat
++ *
++ */
++public class FixedLengthRecordReader 
++    extends RecordReader<BytesWritable, BytesWritable> {
++
++  // reference to the logger
++  private static final Log LOG = 
++    LogFactory.getLog(FixedLengthRecordReader.class);
++
++  // the start point of our split
++  private long splitStart;
++
++  // the end point in our split
++  private long splitEnd; 
++
++  // our current position in the split
++  private long currentPosition;
++
++  // the length of a record
++  private int recordLength; 
++  
++  // the start position of a record key
++  private int recordKeyStartAt; 
++  
++  // the end position of a record key
++  private int recordKeyEndAt; 
++  
++  // the record key length
++  private int recordKeyLength;
++
++  // reference to the input stream
++  private FSDataInputStream fileInputStream;
++
++  // the input byte counter
++  private Counter inputByteCounter; 
++
++  // our record key 
++  private BytesWritable recordKey = null;
++
++  // the record value
++  private BytesWritable recordValue = null; 
++
++  @Override
++  public void close() throws IOException {
++    if (fileInputStream != null) {
++      fileInputStream.close();
++    }
++  }
++
++  @Override
++  public BytesWritable getCurrentKey() throws IOException,
++  InterruptedException {
++    return recordKey;
++  }
++
++  @Override
++  public BytesWritable getCurrentValue() 
++      throws IOException, InterruptedException {
++    return recordValue;
++  }
++
++  @Override
++  public float getProgress() throws IOException, InterruptedException {
++    if (splitStart == splitEnd) {
++      return (float)0;
++    } else {
++      return Math.min((float)1.0, (currentPosition - splitStart) / 
++          (float)(splitEnd - splitStart));
++    } 
++  }
++
++  @Override
++  public void initialize(InputSplit inputSplit, TaskAttemptContext context)
++  throws IOException, InterruptedException {
++
++    // the file input fileSplit
++    FileSplit fileSplit = (FileSplit)inputSplit;
++
++    // the byte position this fileSplit starts at within the splitEnd file
++    splitStart = fileSplit.getStart();
++
++    // splitEnd byte marker that the fileSplit ends at within the splitEnd file
++    splitEnd = splitStart + fileSplit.getLength();
++
++    // the actual file we will be reading from
++    Path file = fileSplit.getPath(); 
++
++    // job configuration
++    Configuration job = context.getConfiguration(); 
++
++    // check to see if compressed....
++    CompressionCodec codec = new CompressionCodecFactory(job).getCodec(file);
++    if (codec != null) {
++      throw new IOException("FixedLengthRecordReader does not support reading"+
++              " compressed files");
++    }
++
++    // for updating the total bytes read in 
++    inputByteCounter = 
++      ((MapContext)context).getCounter(FileInputFormat.COUNTER_GROUP, 
++          FileInputFormat.BYTES_READ); 
++ 
++    // the size of each fixed length record
++    this.recordLength = FixedLengthInputFormat.getRecordLength(job);
++    
++    // the start position for each key
++    this.recordKeyStartAt = FixedLengthInputFormat.getRecordKeyStartAt(job);
++    
++    // the end position for each key
++    this.recordKeyEndAt = FixedLengthInputFormat.getRecordKeyEndAt(job);
++    
++    // record key length (add 1 because the start/end points are INCLUSIVE)
++    this.recordKeyLength = recordKeyEndAt - recordKeyStartAt + 1;
++    
++
++    // log some debug info
++    LOG.info("FixedLengthRecordReader: SPLIT-START="+splitStart + 
++        " SPLIT-END=" +splitEnd + " SPLIT-LENGTH="+fileSplit.getLength() +
++        (this.recordKeyStartAt != -1 ? 
++        		(" KEY-START-AT=" + this.recordKeyStartAt + 
++        		 " KEY-END-AT=" + this.recordKeyEndAt) : 
++        		 " NO-CUSTOM-KEY-START/END SPECIFIED, KEY will be record " +
++        		 "position in InputSplit"));
++ 
++
++    // get the filesystem
++    final FileSystem fs = file.getFileSystem(job); 
++
++    // open the File
++    fileInputStream = fs.open(file); 
++
++    // seek to the splitStart position
++    fileInputStream.seek(splitStart);
++
++    // set our current position
++    this.currentPosition = splitStart; 
++  }
++
++  @Override
++  public boolean nextKeyValue() throws IOException, InterruptedException {
++
++	// allocate a key
++    if (recordKey == null) {
++      recordKey = new BytesWritable(new byte[this.recordKeyLength]);
++    }
++
++    // the recordValue to place the record text in
++    if (recordValue == null) {
++      recordValue = new BytesWritable(new byte[this.recordLength]);
++    }
++    
++    // the byte buffer we will store data in
++    byte[] valueBytes = recordValue.getBytes();
++    
++    // the current position before we start moving forward
++    long thisStartingPosition = currentPosition;
++
++    // if the currentPosition is less than the split end..
++    if (currentPosition < splitEnd) {
++
++      int totalRead = 0; // total bytes read
++      int totalToRead = recordLength; // total bytes we need to read
++
++      // while we still have record bytes to read
++      while(totalRead != recordLength) {
++        // read in what we need
++        int read = this.fileInputStream.read(valueBytes, totalRead, totalToRead);
++
++        /* EOF? this is an error because each 
++         * split calculated by FixedLengthInputFormat
++         * contains complete records, if we receive 
++         * an EOF within this loop, then we have
++         * only read a partial record as totalRead != recordLength
++         */
++        if (read == -1) {
++        	throw new IOException("FixedLengthRecordReader, " +
++        	        " unexpectedly encountered an EOF when attempting" +
++        			" to read in an entire record from the current split");
++        }
++        
++        // read will never be zero, because read is only
++        // zero if you pass in zero to the read() call above
++
++        // update our markers
++        totalRead += read;
++        totalToRead -= read;
++      }
++
++      // update our current position and log the input bytes
++      currentPosition = currentPosition +recordLength;
++      inputByteCounter.increment(recordLength);
++
++      // Determine the KEY value
++      // if recordKeyStartAt and recordKeyEndAt are not the defaults (not set)
++      // the use that as the key
++      if (recordKeyStartAt != -1 && recordKeyEndAt != -1) {
++      	recordKey.set(recordValue.getBytes(), this.recordKeyStartAt, this.recordKeyLength);
++      	
++      // otherwise do the default action, (key is record position in the split)
++      } else {
++      	// default is that the the Key is the position the record started at
++        byte[] posKey = toBytes(thisStartingPosition);
++      	recordKey.set(posKey,0,posKey.length);
++      }
++      
++      return true;             
++    }
++
++    // nothing more to read....
++    return false;
++  }
++
++  
++  public static byte[] toBytes(long val) {
++    byte [] b = new byte[8];
++    for(int i=7;i>0;i--) {
++      b[i] = (byte)(val);
++      val >>>= 8;
++    }
++    b[0] = (byte)(val);
++    return b;
++  }
++}
+Index: src/java/org/apache/hadoop/mapreduce/lib/input/FixedLengthInputFormat.java
+===================================================================
+--- src/java/org/apache/hadoop/mapreduce/lib/input/FixedLengthInputFormat.java	(revision 0)
++++ src/java/org/apache/hadoop/mapreduce/lib/input/FixedLengthInputFormat.java	(revision 0)
+@@ -0,0 +1,382 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapreduce.lib.input;
++
++import java.io.IOException;
++import java.util.List;
++
++import org.apache.commons.logging.Log;
++import org.apache.commons.logging.LogFactory;
++import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.io.BytesWritable;
++import org.apache.hadoop.mapreduce.Job;
++import org.apache.hadoop.io.compress.CompressionCodec;
++import org.apache.hadoop.io.compress.CompressionCodecFactory;
++import org.apache.hadoop.mapreduce.InputSplit;
++import org.apache.hadoop.mapreduce.JobContext;
++import org.apache.hadoop.mapreduce.RecordReader;
++import org.apache.hadoop.mapreduce.TaskAttemptContext;
++
++/**
++ * FixedLengthInputFormat is an input format which can be used
++ * for input files which contain fixed length records with NO
++ * delimiters and NO carriage returns (CR, LF, CRLF) etc. Such
++ * files typically only have one gigantic line and each "record"
++ * is of a fixed length, and padded with spaces if the record's actual
++ * value is shorter than the fixed length.<BR><BR>
++ * 
++ * Users must configure the record length property before submitting
++ * any jobs which use FixedLengthInputFormat.<BR><BR>
++ * 
++ * FixedLengthInputFormat.setRecordLength(myJob,[myFixedRecordLength]);<BR><BR>
++ * 
++ * Secondly users can optionally configure the record key start/end properties 
++ * before submitting any jobs which use FixedLengthInputFormat. 
++ * These properties define the byte position to start at and subsequently end at 
++ * for the record key. There are multiple options for setting the property
++ * programatically. If NOT set, the key returned will be the record position
++ * within the InputSplit that the record was read from. <BR><BR>
++ * 
++ * FixedLengthInputFormat.setRecordKeyStartAt(myJob,[start at position, INCLUSIVE]);<BR>
++ * FixedLengthInputFormat.setRecordKeyEndAt(myJob,[end at position, INCLUSIVE]);<BR>
++ * FixedLengthInputFormat.setRecordKeyBoundaries(myJob,[start],[end]);<BR><BR>
++ * 
++ * This input format overrides <code>computeSplitSize()</code> in order to ensure
++ * that InputSplits do not contain any partial records since with fixed records
++ * there is no way to determine where a record begins if that were to occur.
++ * Each InputSplit passed to the FixedLengthRecordReader will start at the 
++ * beginning of a record, and the last byte in the InputSplit will be the last 
++ * byte of a record. The override of <code>computeSplitSize()</code> delegates 
++ * to FileInputFormat's compute method, and then adjusts the returned split size 
++ * by doing the following:
++ * <code>(fileInputFormatsComputedSplitSize / fixedRecordLength) * fixedRecordLength</code>
++ *
++ * <BR><BR>
++ * This InputFormat returns a FixedLengthRecordReader. <BR><BR>
++ * 
++ * Compressed files currently are not supported.
++ *
++ * @see    FixedLengthRecordReader
++ *
++ */
++public class FixedLengthInputFormat 
++    extends FileInputFormat<BytesWritable, BytesWritable> {
++
++
++  /**
++   * When using FixedLengthInputFormat you MUST set this
++   * property in your job configuration to specify the fixed
++   * record length.
++   * <BR><BR>
++   * 
++   * i.e. 
++   * myJobConf.setInt("mapreduce.input.fixedlengthinputformat.record.length",
++   *     [myFixedRecordLength]);
++   * <BR><BR>
++   * OR<BR><BR>
++   * FixedLengthInputFormat.setRecordLength(myJob,[myFixedRecordLength]);
++   * 
++   */
++  public static final String FIXED_RECORD_LENGTH = 
++    "mapreduce.input.fixedlengthinputformat.record.length"; 
++  
++  /**
++   * When using FixedLengthInputFormat you can set this
++   * property in your job configuration to specify the byte position
++   * within each record where they KEY value returned by FixedLengthRecordReader
++   * should start at. (Zero based, INCLUSIVE) If this config property is set, you MUST also 
++   * set the "mapreduce.input.fixedlengthinputformat.recordkey.endat"
++   * <BR><BR>
++   * If the start/end key boundaries are NOT setup, the key value for each
++   * record will be the record's position within the file.<BR><BR>
++   * 
++   * i.e. 
++   * myJobConf.setInt("mapreduce.input.fixedlengthinputformat.recordkey.startat",
++   *     [startAtPosition]);
++   * <BR><BR>
++   * OR<BR><BR>
++   * FixedLengthInputFormat.setRecordKeyStartAt(myJob,[startAtPosition]);
++   * <BR><BR>
++   * OR<BR><BR>
++   * FixedLengthInputFormat.setRecordKeyBoundaries(myJob,[startAtPosition],
++   *                                                     [endAtPosition]);
++   * 
++   */
++  public static final String FIXED_RECORD_KEY_START_AT = 
++    "mapreduce.input.fixedlengthinputformat.recordkey.startat";
++
++ 
++  /**
++   * When using FixedLengthInputFormat you can set this
++   * property in your job configuration to specify the byte position
++   * within each record where they KEY value returned by FixedLengthRecordReader
++   * ends at. (Zero based, INCLUSIVE) If this config property is set, you MUST also set the
++   * "mapreduce.input.fixedlengthinputformat.recordkey.startat"
++   * <BR><BR>
++   * If the start/end key boundaries are NOT setup, the key value for each
++   * record will be the record's position within the file.<BR><BR>
++   * 
++   * i.e. 
++   * myJobConf.setInt("mapreduce.input.fixedlengthinputformat.recordkey.startat",
++   *     [startAtPosition]);
++   * <BR><BR>
++   * OR<BR><BR>
++   * FixedLengthInputFormat.setRecordKeyEndAt(myJob,[endAtPosition]);
++   * <BR><BR>
++   * OR<BR><BR>
++   * FixedLengthInputFormat.setRecordKeyBoundaries(myJob,[startAtPosition],
++   *                                                     [endAtPosition]);
++   * 
++   */
++  public static final String FIXED_RECORD_KEY_END_AT = 
++    "mapreduce.input.fixedlengthinputformat.recordkey.endat";
++  
++  // our logger reference
++  private static final Log LOG = 
++    LogFactory.getLog(FixedLengthInputFormat.class);
++
++  // the default fixed record length (-1), error if this does not change
++  private int recordLength = -1;
++
++  // the start position for each records KEY
++  // default -1 means not set, not used by record reader
++  private int recordKeyStartAt = -1;
++  
++  // the end position for each records KEY
++  // default -1 means not set, not used by record reader
++  private int recordKeyEndAt = -1;
++  
++  /**
++   * Set the length of each record
++   * @param job the job to modify
++   * @param recordLength the length of a record
++   */
++  public static void setRecordLength(Job job, int recordLength) {
++    job.getConfiguration().setInt(FIXED_RECORD_LENGTH, recordLength);
++  }
++  
++  /**
++   * Set the ending position of a fixed record's key value
++   * @param job the job to modify
++   * @param endAt the end position within a fixed record, that defines the last
++   *        byte for the record's key value (Zero based)
++   */
++  public static void setRecordKeyEndAt(Job job, int endAt) {
++    job.getConfiguration().setInt(FIXED_RECORD_KEY_END_AT, endAt);
++  }
++  
++  /**
++   * Set the starting position of a fixed record's key value
++   * @param job the job to modify
++   * @param startAt the start position within a fixed record, that defines the first
++   *        byte for the record's key value (Zero based)
++   */
++  public static void setRecordKeyStartAt(Job job, int startAt) {
++    job.getConfiguration().setInt(FIXED_RECORD_KEY_START_AT, startAt);
++  }
++  
++  /**
++   * Get the ending position of a fixed record's key value
++   * @param conf the configuration to fetch the property from
++   * return the end position within a fixed record, that defines the last
++   *        byte for the record's key value (Zero based, INCLUSIVE)
++   */
++  public static int getRecordKeyEndAt(Configuration conf) {
++    return conf.getInt(FIXED_RECORD_KEY_END_AT, -1);
++  }
++  
++  
++  /**
++   * Get the starting position of a fixed record's key value
++   * @param conf the configuration to fetch the property from
++   * return the start position within a fixed record, that defines the first
++   *        byte for the record's key value (Zero based, INCLUSIVE)
++   */
++  public static int getRecordKeyStartAt(Configuration conf) {
++    return conf.getInt(FIXED_RECORD_KEY_START_AT, -1);
++  }
++  
++  /**
++   * Get record length value
++   * @param conf  the Configuration
++   * return the record length, zero means none was set
++   */
++  public static int getRecordLength(Configuration conf) {
++    return conf.getInt(FIXED_RECORD_LENGTH, 0);
++  }
++
++  
++  /**
++   * Set the starting and ending position of a fixed record's key value
++   * 
++   * @param job the job to modify
++   * @param startAt the start position within a fixed record, that defines the first
++   *        byte for the record's key value (Zero based, INCLUSIVE)
++   * @param endAt the end position within a fixed record, that defines the last
++   *        byte for the record's key value (Zero based, INCLUSIVE)
++   */
++  public static void setRecordKeyBoundaries(Job job, int startAt, int endAt) {
++    setRecordKeyStartAt(job,startAt);
++    setRecordKeyEndAt(job,startAt);
++  }
++
++  /**
++   * Return the int value from the given Configuration found
++   * by the FIXED_RECORD_LENGTH property.
++   * 
++   * @param config
++   * @return    int record length value
++   * @throws IOException if the record length found is 0 (non-existant, 
++   *     not set etc)
++   */
++  private static int getAndValidateRecordLength(Configuration config) throws IOException {
++    int recordLength = 
++      config.getInt(FixedLengthInputFormat.FIXED_RECORD_LENGTH, 0); 
++
++    // this would be an error
++    if (recordLength == 0) {
++      throw new IOException("FixedLengthInputFormat requires the Configuration"+
++              " property:" + FIXED_RECORD_LENGTH + " to" +
++              " be set to something > 0. Currently the value is 0 (zero)");
++    }
++
++    return recordLength;
++  }
++
++  /**
++   * This input format overrides <code>computeSplitSize()</code> in order to ensure
++   * that InputSplits do not contain any partial records since with fixed records
++   * there is no way to determine where a record begins if that were to occur.
++   * Each InputSplit passed to the FixedLengthRecordReader will start at the 
++   * beginning of a record, and the last byte in the InputSplit will be the last 
++   * byte of a record.The override of <code>computeSplitSize()</code> delegates 
++   * to FileInputFormat's compute method, and then adjusts the returned split 
++   * size by doing the following:
++   * <code>(fileInputFormatsComputedSplitSize / fixedRecordLength) * fixedRecordLength</code>
++   * 
++   * @inheritDoc
++   */
++  @Override
++  protected long computeSplitSize(long blockSize, long minSize, long maxSize) {
++    long defaultSize = 
++      super.computeSplitSize(blockSize, minSize, maxSize);
++
++    // 1st, if the default size is less than the length of a
++    // raw record, lets bump it up to a minimum of at least ONE record length
++    if (defaultSize <= recordLength) {
++      return recordLength;
++    }
++
++    // determine the split size, it should be as close as possible to the 
++    // default size, but should NOT split within a record... each split
++    // should contain a complete set of records with the first record
++    // starting at the first byte in the split and the last record ending
++    // with the last byte in the split.
++    long splitSize =  (defaultSize / recordLength) * recordLength;
++    
++    LOG.info("FixedLengthInputFormat: calculated split size: " + splitSize);
++
++    return splitSize;
++
++  }
++
++  /**
++   * Returns a FixedLengthRecordReader instance
++   * 
++   * @inheritDoc
++   */
++  @Override
++  public RecordReader<BytesWritable, BytesWritable> createRecordReader(InputSplit split,
++      TaskAttemptContext context) throws IOException, InterruptedException {
++    return new FixedLengthRecordReader();
++  }
++
++  /**
++   * Validates that a valid FIXED_RECORD_LENGTH config property
++   * has been set and if so, returns the splits. If the FIXED_RECORD_LENGTH
++   * property has not been set, this will throw an IOException.
++   * 
++   * @inheritDoc
++   */
++  @Override
++  public List<InputSplit> getSplits(JobContext job) throws IOException {
++	  
++    // fetch configuration
++	Configuration conf = job.getConfiguration();
++
++	// ensure recordLength is properly setup
++    try {
++      if (this.recordLength == -1) {
++        this.recordLength = getAndValidateRecordLength(job.getConfiguration());
++      }
++      LOG.info("FixedLengthInputFormat: my fixed record length is: " + 
++              recordLength);
++
++    } catch(Exception e) {
++	    throw new IOException("FixedLengthInputFormat requires the" +
++              " Configuration property:" + FIXED_RECORD_LENGTH + " to" +
++              " be set to something > 0. Currently the value is 0 (zero)");
++    }
++    
++    // ensure recordKey start/end is setup properly if it was defined by the user
++	if (this.recordKeyStartAt == -1) {
++		
++		this.recordKeyStartAt = FixedLengthInputFormat.getRecordKeyStartAt(conf); 
++		this.recordKeyEndAt = FixedLengthInputFormat.getRecordKeyEndAt(conf);
++		
++		// if one is set, they BOTH must be set, this is an error
++		// if endAt < startAt, this is an error
++		// if either is > record length, this is an error
++		// if either are < -1 (default), this is an error
++		if ((recordKeyStartAt >= 0 && recordKeyEndAt == -1) ||
++			(recordKeyStartAt == -1 && recordKeyEndAt >= 0) ||
++			(recordKeyEndAt < recordKeyStartAt) ||
++			(recordKeyEndAt > recordLength) ||
++			(recordKeyStartAt > recordLength) ||
++			(recordKeyStartAt < -1) ||
++			(recordKeyEndAt < -1)) {
++				
++          throw new IOException("FixedLengthInputFormat requires the" +
++            " optional configuration properties:" + FIXED_RECORD_KEY_START_AT + 
++            " and" + FIXED_RECORD_KEY_END_AT + " to A) be less than the "+
++            " fixed record length. B) both must be set together C) neither " +
++            " can be less than 0. D) end at must be > start at.");
++		} 	
++	}
++
++    return super.getSplits(job);
++  }
++  
++  
++  /**
++   * @inheritDoc
++   */
++  @Override
++  protected boolean isSplitable(JobContext context, Path file) {
++    CompressionCodec codec = 
++      new CompressionCodecFactory(context.getConfiguration()).getCodec(file);
++    if (codec != null) {
++      return false; 
++    }
++
++    return true; 
++  } 
++
++}
