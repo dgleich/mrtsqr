@@ -3,5 +3,6 @@ dump_typedbytes_info
 write_typedbytes_test
 tsqr
 word_count
+colsums
 
 

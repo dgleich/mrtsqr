@@ -5,7 +5,7 @@ CC=$(CXX)
 CXXFLAGS=-Wall -O3  -std=c++0x
 LDFLAGS=-L/usr/lib64/atlas -llapack43 -lf77blas43 -latlas43
 
-all: tsqr word_count tests
+all: tsqr word_count colsums tests
 
 tests: dump_typedbytes_info write_typedbytes_test
 	./write_typedbytes_test write.tb
@@ -21,8 +21,12 @@ typedbytes.o: typedbytes.h
 dump_typedbytes_info.o: typedbytes.h
 write_typedbytes_test.o: typedbytes.h
 word_count.o: typedbytes.h
+
+colsums.o: typedbytes.h
 tsqr.o: typedbytes.h sparfun_util.h
 sf_util.o: sparfun_util.h
+
+colsums: colsums.o typedbytes.o
 
 tsqr: tsqr.o typedbytes.o sf_util.o
 
