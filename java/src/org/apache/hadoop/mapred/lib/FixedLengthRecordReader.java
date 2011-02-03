@@ -29,11 +29,11 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.Seekable;
 
-
-
 import org.apache.hadoop.conf.Configuration;
 
 import org.apache.hadoop.mapred.FileSplit;
+import org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapred.RecordReader;
 
 import org.apache.hadoop.io.compress.CodecPool;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -42,35 +42,7 @@ import org.apache.hadoop.io.compress.Decompressor;
 import org.apache.hadoop.io.compress.SplitCompressionInputStream;
 import org.apache.hadoop.io.compress.SplittableCompressionCodec;
 
-//
-
-import org.apache.hadoop.mapreduce.Counter;
-import org.apache.hadoop.mapreduce.MapContext;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
-
-import org.apache.hadoop.conf.Configured;
-
-
-
-import org.apache.hadoop.mapred.JobConf;
-
-
-
 import org.apache.hadoop.io.BytesWritable;
-
-import org.apache.hadoop.mapred.ClusterStatus;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapreduce.MRJobConfig;
-import org.apache.hadoop.mapred.FileOutputFormat;
-
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.InputSplit;
-import org.apache.hadoop.mapred.RecordReader;
-
-import org.apache.hadoop.mapred.JobContext;
-
 
 /**
  * 
@@ -99,6 +71,7 @@ public class FixedLengthRecordReader
   private static final Log LOG = 
     LogFactory.getLog(FixedLengthRecordReader.class);
 
+  private CompressionCodecFactory compressionCodecs = null;
   private long start;
   private long pos;
   private long end;
@@ -123,13 +96,13 @@ public class FixedLengthRecordReader
   public FixedLengthRecordReader(FileSplit split, 
                                  Configuration conf) throws IOException {
     // the size of each fixed length record
-    this.recordLength = FixedLengthInputFormat.getRecordLength(job);
+    this.recordLength = FixedLengthInputFormat.getRecordLength(conf);
     
     // the start position for each key
-    this.recordKeyStartAt = FixedLengthInputFormat.getRecordKeyStartAt(job);
+    this.recordKeyStartAt = FixedLengthInputFormat.getRecordKeyStartAt(conf);
     
     // the end position for each key
-    this.recordKeyEndAt = FixedLengthInputFormat.getRecordKeyEndAt(job);
+    this.recordKeyEndAt = FixedLengthInputFormat.getRecordKeyEndAt(conf);
     
     // record key length (add 1 because the start/end points are INCLUSIVE)
     this.recordKeyLength = recordKeyEndAt - recordKeyStartAt + 1;
@@ -142,14 +115,14 @@ public class FixedLengthRecordReader
         		 " NO-CUSTOM-KEY-START/END SPECIFIED, KEY will be record " +
         		 "position in InputSplit"));
                  
-    start = split.start();
+    start = split.getStart();
     end = split.getLength() + start;
     final Path file = split.getPath();
-    compressionCodecs = new CompressionCodecFactory(job);
+    compressionCodecs = new CompressionCodecFactory(conf);
     codec = compressionCodecs.getCodec(file);
     
     // open the file and seek to the start of the split
-    final FileSystem fs = file.getFileSystem(job);
+    final FileSystem fs = file.getFileSystem(conf);
     fileIn = fs.open(file);
     if (isCompressedInput()) {
       decompressor = CodecPool.getDecompressor(codec);
@@ -221,7 +194,7 @@ public class FixedLengthRecordReader
   }
 
   @Override
-  public synchronized float getProgress() throws IOException, InterruptedException {
+  public synchronized float getProgress() throws IOException {
     if (start == end) {
       return 0.0f;
     } else {
@@ -241,7 +214,7 @@ public class FixedLengthRecordReader
     // while we still have record bytes to read
     while(totalRead != recordLength) {
       // read in what we need
-      int read = this.fileInputStream.read(record, totalRead, totalToRead);
+      int read = this.in.read(record, totalRead, totalToRead);
 
       /* EOF? this is an error because each 
        * split calculated by FixedLengthInputFormat

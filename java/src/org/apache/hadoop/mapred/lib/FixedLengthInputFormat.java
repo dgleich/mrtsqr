@@ -23,12 +23,14 @@ import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.FileInputFormat;
-
+import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 
@@ -167,7 +169,7 @@ public class FixedLengthInputFormat
    * @param job the job to modify
    * @param recordLength the length of a record
    */
-  public static void setRecordLength(JobConf conf, int recordLength) {
+  public static void setRecordLength(Configuration conf, int recordLength) {
     conf.setInt(FIXED_RECORD_LENGTH, recordLength);
   }
   
@@ -177,7 +179,7 @@ public class FixedLengthInputFormat
    * @param endAt the end position within a fixed record, that defines the last
    *        byte for the record's key value (Zero based)
    */
-  public static void setRecordKeyEndAt(JobConf conf, int endAt) {
+  public static void setRecordKeyEndAt(Configuration conf, int endAt) {
     conf.setInt(FIXED_RECORD_KEY_END_AT, endAt);
   }
   
@@ -187,7 +189,7 @@ public class FixedLengthInputFormat
    * @param startAt the start position within a fixed record, that defines the first
    *        byte for the record's key value (Zero based)
    */
-  public static void setRecordKeyStartAt(JobConf conf, int startAt) {
+  public static void setRecordKeyStartAt(Configuration conf, int startAt) {
     conf.setInt(FIXED_RECORD_KEY_START_AT, startAt);
   }
   
@@ -197,7 +199,7 @@ public class FixedLengthInputFormat
    * return the end position within a fixed record, that defines the last
    *        byte for the record's key value (Zero based, INCLUSIVE)
    */
-  public static int getRecordKeyEndAt(JobConf conf) {
+  public static int getRecordKeyEndAt(Configuration conf) {
     return conf.getInt(FIXED_RECORD_KEY_END_AT, -1);
   }
   
@@ -208,7 +210,7 @@ public class FixedLengthInputFormat
    * return the start position within a fixed record, that defines the first
    *        byte for the record's key value (Zero based, INCLUSIVE)
    */
-  public static int getRecordKeyStartAt(JobConf conf) {
+  public static int getRecordKeyStartAt(Configuration conf) {
     return conf.getInt(FIXED_RECORD_KEY_START_AT, -1);
   }
   
@@ -217,7 +219,7 @@ public class FixedLengthInputFormat
    * @param conf  the Configuration
    * return the record length, zero means none was set
    */
-  public static int getRecordLength(JobConf conf) {
+  public static int getRecordLength(Configuration conf) {
     return conf.getInt(FIXED_RECORD_LENGTH, 0);
   }
 
@@ -231,7 +233,7 @@ public class FixedLengthInputFormat
    * @param endAt the end position within a fixed record, that defines the last
    *        byte for the record's key value (Zero based, INCLUSIVE)
    */
-  public static void setRecordKeyBoundaries(JobConf conf, int startAt, int endAt) {
+  public static void setRecordKeyBoundaries(Configuration conf, int startAt, int endAt) {
     setRecordKeyStartAt(conf,startAt);
     setRecordKeyEndAt(conf,startAt);
   }
@@ -245,7 +247,7 @@ public class FixedLengthInputFormat
    * @throws IOException if the record length found is 0 (non-existant, 
    *     not set etc)
    */
-  private static int getAndValidateRecordLength(JobConf config) throws IOException {
+  private static int getAndValidateRecordLength(Configuration config) throws IOException {
     int recordLength = 
       config.getInt(FixedLengthInputFormat.FIXED_RECORD_LENGTH, 0); 
 
@@ -267,8 +269,8 @@ public class FixedLengthInputFormat
   @Override
   public RecordReader<BytesWritable, BytesWritable> getRecordReader(
     InputSplit split, JobConf job, Reporter reporter) 
-    throws IOException, InterruptedException {
-    return new FixedLengthRecordReader(job,(FileSplit)split);
+    throws IOException {
+    return new FixedLengthRecordReader((FileSplit)split,job);
   }
   
   /**
@@ -279,7 +281,7 @@ public class FixedLengthInputFormat
    * @inheritDoc
    */
   @Override
-  public List<InputSplit> getSplits(JobConf conf, int numSplits) 
+  public InputSplit[] getSplits(JobConf conf, int numSplits) 
     throws IOException {
 	  
 	// ensure recordLength is properly setup
@@ -321,6 +323,6 @@ public class FixedLengthInputFormat
 		} 	
 	}
 
-    return super.getSplits(job);
+    return super.getSplits(conf, numSplits);
   }
 }
