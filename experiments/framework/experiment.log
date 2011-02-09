@@ -1,0 +1,62 @@
+Running: dumbo start tsqr.py -mat tsqr-mr/test/mat-5g-100-bigblock.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 81
+Checking tsqr-mr/test/mat-5g-100-bigblock-qrr.mseq
+CORRECT
+
+
+Running: python tsqr.py -mat tsqr-mr/test/mat-5g-100-bigblock.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 190
+Checking tsqr-mr/test/mat-5g-100-bigblock-qrr.mseq
+CORRECT
+
+
+Running: python tsqr_cxx.py -mat tsqr-mr/test/mat-5g-100-bigblock.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 76
+Checking tsqr-mr/test/mat-5g-100-bigblock-qrr.mseq
+CORRECT
+
+
+Running: python tsqr.py -mat tsqr-mr/test/mat-5g-100-bigblock.mseq -blocksize 3 -reduce_schedule 250,1
+Result: ERROR
+Elapsed: 3
+Checking tsqr-mr/test/mat-5g-100-bigblock-qrr.mseq
+
+
+Running: python tsqr.py -mat tsqr-mr/test/mat-5g-100-bigblock.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 188
+Checking tsqr-mr/test/mat-5g-100-bigblock-qrr.mseq
+CORRECT
+
+
+Running: dumbo start tsqr.py -mat tsqr-mr/test/mat-500g-500.mseq -blocksize 3 -reduce_schedule 250,1
+Result: ERROR
+Elapsed: 597
+Checking tsqr-mr/test/mat-500g-500-qrr.mseq
+CORRECT
+
+
+Running: python tsqr.py -mat tsqr-mr/test/mat-500g-500.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 867
+Checking tsqr-mr/test/mat-500g-500-qrr.mseq
+CORRECT
+
+
+Running: python tsqr_cxx.py -mat tsqr-mr/test/mat-500g-500.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 419
+Checking tsqr-mr/test/mat-500g-500-qrr.mseq
+CORRECT
+
+
+Running: dumbo start tsqr.py -mat tsqr-mr/test/mat-500g-500.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 1209
+Checking tsqr-mr/test/mat-500g-500-qrr.mseq
+CORRECT
+
+

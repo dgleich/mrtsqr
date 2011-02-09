@@ -136,7 +136,7 @@ def runner(job):
                 opts=[('numreducetasks',str(nreducers))])
         else:
             nreducers = int(part)
-            if i>0:
+            if i==0:
                 mapper = SerialTSQR(blocksize=blocksize,isreducer=False)
             else:
                 mapper = 'org.apache.hadoop.mapred.lib.IdentityMapper'

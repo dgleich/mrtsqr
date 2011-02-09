@@ -212,6 +212,7 @@ def starter(args, launch=True):
             
         if launch:
             hadoopy.launch_frozen(input, curoutput, __file__, 
+                mapper=mapper,
                 cmdenvs=gopts.cmdenv(), num_reducers=int(step),
                 jobconfs=jobconfs)
     
