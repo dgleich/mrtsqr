@@ -8,6 +8,8 @@ dumbo_dir=`cd ../../dumbo; pwd`
 hadoopy_dir=`cd ../../hadoopy; pwd`
 cxx_dir=`cd ../../cxx; pwd`
 
+logfile=$mydir/experiment.log
+
 matbase=tsqr-mr/test/mat-500g
 reduce_schedule=250,1
 
@@ -15,11 +17,40 @@ matcols="50 100 1000"
 blocksize="2 3 5 10 20"
 reduce_schedule="250,1"
 
+echo >> $logfile
+echo >> $logfile
+echo >> $logfile
+echo >> $logfile
+echo "new run" >> $logfile
+date >> $logfile
+
 cd $cxx_dir
+
+function run_tsqr {
+    args="-mat $1.mseq -blocksize $2 -reduce_schedule $3"
+    echo $args >> $logfile
+    
+    before="$(date +%s)"
+    python tsqr_cxx.py $args
+    if [ $? -ne 0 ]; then
+      result="ERROR"
+    else
+      result="SUCCESS"
+    fi
+    after="$(date +%s)"
+    elapsed_seconds="$(expr $after - $before)"
+    echo Result: $result >> $logfile
+    echo Elapsed: $elapsed_seconds >> $logfile
+   
+    echo Checking $1-qrr.mseq >> $logfile
+    dumbo convert $dumbo_dir/check_test_problem.py $1-qrr.mseq >> $logfile
+    echo >> $logfile
+    echo >> $logfile
+}
 
 for size in $matcols; do
   for bs in $blocksize; do
-    python tsqr_cxx.py -mat $matbase-$size.mseq -blocksize $bs -reduce_schedule $reduce_schedule
+    run_tsqr $matbase-$size $bs $reduce_schedule
   done
 done  
 
@@ -28,6 +59,6 @@ done
 
 
 # extra points
-python tsqr_cxx.py -mat $matbase-50.mseq -blocksize 50 -reduce_schedule $reduce_schedule
-python tsqr_cxx.py -mat $matbase-50.mseq -blocksize 100 -reduce_schedule $reduce_schedule
-python tsqr_cxx.py -mat $matbase-50.mseq -blocksize 200 -reduce_schedule $reduce_schedule
+run_tsqr $matbase-50 50 $reduce_schedule
+run_tsqr $matbase-50 100 $reduce_schedule
+run_tsqr $matbase-50 200 $reduce_schedule

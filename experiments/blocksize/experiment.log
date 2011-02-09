@@ -1,0 +1,308 @@
+
+
+
+
+new run
+Fri Feb  4 21:31:37 PST 2011
+
+Result: ERROR
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+
+
+
+Result: ERROR
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+
+Result: ERROR
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+
+
+
+Result: ERROR
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+
+
+
+Result: ERROR
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+
+
+
+Result: ERROR
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+
+
+
+Result: ERROR
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+
+
+
+Result: ERROR
+Elapsed: 1
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+
+
+
+
+
+
+
+new run
+Fri Feb  4 21:35:21 PST 2011
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 2 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 5 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 10 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 20 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 2 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 5 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 10 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 20 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 2 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 10 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 20 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 50 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 200 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 0
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+
+
+
+
+new run
+Fri Feb  4 21:36:34 PST 2011
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 2 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 456
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 432
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 5 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 436
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 10 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 429
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 20 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 426
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 2 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 440
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 422
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 5 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 421
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 10 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 404
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 20 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 406
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 2 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 701
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 3 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 614
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 587
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 10 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 644
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 20 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 644
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 50 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 434
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 408
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 200 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 423
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+CORRECT
+
+

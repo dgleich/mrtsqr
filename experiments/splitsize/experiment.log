@@ -1,0 +1,85 @@
+new run
+Fri Feb  4 14:07:13 PST 2011
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 1 -split_size 67108864
+Elapsed: 5
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 1 -split_size 67108864
+Elapsed: 1
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 1 -split_size 268435456
+new run
+Fri Feb  4 14:10:54 PST 2011
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 1 -split_size 67108864
+Elapsed: 409
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 1 -split_size 67108864 -big_mem 5g
+Elapsed: 3507
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 1 -split_size 268435456
+Elapsed: 182
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 1 -split_size 268435456 -big_mem 5g
+Elapsed: 511
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 1 -split_size 102410241024
+Elapsed: 149
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 1 -split_size 102410241024 -big_mem 5g
+Elapsed: 665
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 250,1 -split_size 67108864
+Elapsed: 405
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 250,1 -split_size 67108864 -big_mem 5g
+Elapsed: 437
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 250,1 -split_size 268435456
+Elapsed: 202
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 250,1 -split_size 268435456 -big_mem 5g
+Elapsed: 288
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 250,1 -split_size 102410241024
+Elapsed: 182
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 250,1 -split_size 102410241024 -big_mem 5g
+Elapsed: 218
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+new run
+Fri Feb  4 19:57:59 PST 2011
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 1 -split_size 67108864
+Elapsed: 388
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 1 -split_size 67108864 -big_mem 5g
+Elapsed: 472
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 1 -split_size 268435456
+Elapsed: 184
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 1 -split_size 268435456 -big_mem 5g
+Elapsed: 519
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 1 -split_size 102410241024
+Elapsed: 149
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 1 -split_size 102410241024 -big_mem 5g
+Elapsed: 666
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 250,1 -split_size 67108864
+Elapsed: 425
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 250,1 -split_size 67108864 -big_mem 5g
+Elapsed: 590
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 250,1 -split_size 268435456
+Elapsed: 220
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 250,1 -split_size 268435456 -big_mem 5g
+Elapsed: 432
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
+-mat tsqr-mr/test/mat-500g-50.mseq -blocksize 100 -reduce_schedule 250,1 -split_size 102410241024
+Elapsed: 191
+Checking tsqr-mr/test/mat-500g-50-qrr.mseq
+-mat tsqr-mr/test/mat-500g-1000.mseq -blocksize 5 -reduce_schedule 250,1 -split_size 102410241024 -big_mem 5g
+Elapsed: 377
+Checking tsqr-mr/test/mat-500g-1000-qrr.mseq
