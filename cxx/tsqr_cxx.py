@@ -71,11 +71,16 @@ if __name__=='__main__':
         hadoop_args.extend(['-jobconf',
             'mapreduce.input.fileinputformat.split.minsize='+
             args['split_size']])
+            
+            
+    if 'big_mem' in args:
+        hadoop_args.extend(['jobconf',
+            'mapred.child.java.opts="-Xmx%s"'%(args['big_mem'])])
     
     hadoop_args.extend(['-io', 'typedbytes'])
     hadoop_args.extend(['-file', 'tsqr'])
-    hadoop_args.extend(['-mapper', "'./tsqr map %i'"%(blocksize)])
     hadoop_args.extend(['-reducer', "'./tsqr reduce %i'"%(blocksize)])
+    #hadoop_args.extend(['-combiner', "'./tsqr reduce %i'"%(blocksize)])
     hadoop_args.extend(['-outputformat', "'org.apache.hadoop.mapred.SequenceFileOutputFormat'"])
     hadoop_args.extend(['-inputformat', "'org.apache.hadoop.streaming.AutoInputFormat'"])
 
@@ -85,15 +90,20 @@ if __name__=='__main__':
     steps = [int(s) for s in steps]
     
     for i,step in enumerate(steps):
+        cur_args = [arg for arg in hadoop_args]
+        
         if i>0:
             input = curoutput
-            
+            cur_args.extend(['-mapper', "'org.apache.hadoop.mapred.lib.IdentityMapper'"])    
+        else:
+            cur_args.extend(['-mapper', "'./tsqr map %i'"%(blocksize)])    
+        
         if i+1==len(steps):
             curoutput = output
         else:
             curoutput = output+"_iter%i"%(i+1)
             
-        cur_args = [arg for arg in hadoop_args]
+        
         cur_args.extend(['-jobconf',"'mapreduce.job.name="+jobname+
             " (%i/%i)'"%(i+1,len(steps))])
         cur_args.extend(['-input',"'"+input+"'"])
