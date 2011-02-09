@@ -197,6 +197,9 @@ def starter(args, launch=True):
     for i,step in enumerate(steps):
         if i>0:
             input = curoutput
+            mapper = 'org.apache.hadoop.mapred.lib.IdentityMapper'
+        else:
+            mapper = True # use the command line mapper
             
         if i+1==len(steps):
             curoutput = output
