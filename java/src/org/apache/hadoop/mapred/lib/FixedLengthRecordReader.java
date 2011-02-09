@@ -108,6 +108,7 @@ public class FixedLengthRecordReader
     this.recordKeyLength = recordKeyEndAt - recordKeyStartAt + 1;
     
     // log some debug info
+    LOG.info("FixedLengthRecordReader: recordLength="+this.recordLength);
     LOG.info("FixedLengthRecordReader: " + 
         (this.recordKeyStartAt != -1 ? 
         		(" KEY-START-AT=" + this.recordKeyStartAt + 
@@ -147,8 +148,14 @@ public class FixedLengthRecordReader
     
     if (start != 0) {
       // seek to the start of the next record.
-      long dist = start % this.recordLength;
-      filePosition.seek(dist);
+      long mod = start % this.recordLength;
+      long dist = mod != 0 ? 
+        (this.recordLength - (start % this.recordLength))
+        : 0;
+      LOG.info("FixedLengthRecordReader: " + 
+        "Starting at offset " + start + " seeking " + dist + 
+        " bytes to next record.");
+      filePosition.seek(start+dist);
       start += dist;
     }
     this.pos = start;
@@ -241,9 +248,8 @@ public class FixedLengthRecordReader
   public synchronized boolean next(BytesWritable key, BytesWritable value)
     throws IOException {
     
-    while (getFilePosition() <= end) {
+    while (getFilePosition() < end) {
       this.readRecord(value.getBytes());
-      pos += recordLength;
       
       if (recordKeyStartAt != -1 && recordKeyEndAt != -1) {
       	key.set(recordValue.getBytes(), this.recordKeyStartAt, this.recordKeyLength);
@@ -254,6 +260,8 @@ public class FixedLengthRecordReader
         byte[] posKey = toBytes(pos);
       	key.set(posKey,0,posKey.length);
       }
+      
+      pos += recordLength;
       
       return true;
     }
