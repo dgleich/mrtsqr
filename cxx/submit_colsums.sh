@@ -10,6 +10,7 @@ hadoop jar $STREAMING_JAR -input $1 -output colsums-output.vseq \
   -io typedbytes \
   -outputformat 'org.apache.hadoop.mapred.SequenceFileOutputFormat' \
   -inputformat 'org.apache.hadoop.streaming.AutoInputFormat' \
-  -file colsums -mapper "./colsums map" -reducer './colsums reduce' 
+  -file colsums -mapper "./colsums map" -reducer './colsums reduce' \
+  -jobconf mapreduce.input.fileinputformat.split.minsize=536870912
 
 hadoop jar $STREAMING_JAR dumptb colsums-output.vseq | ./dump_typedbytes_info -  
