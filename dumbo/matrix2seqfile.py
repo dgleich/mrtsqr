@@ -23,7 +23,7 @@ class Converter:
         item = 0
         for key,value in data:
             for entry in value:
-                print entry, 
+                print "%18.16e"%(entry), 
             print
             item += 1
     
