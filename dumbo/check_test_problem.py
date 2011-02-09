@@ -38,7 +38,7 @@ class Converter:
                     nerrs += 1
                     if nerrs <= 10:
                         print >> sys.stderr, \
-                            "[%2i] INCORRECT entry (%i,%j) diff=%f\n"%(
+                            "[%2i] INCORRECT entry (%i,%i) diff=%18.16e"%(
                             nerrs, i+1, j+1, abs(r[i]-1.))
                         if nerrs == 10:
                             print >> sys.stderr, \
