@@ -1,7 +1,7 @@
 #!/bin/bash
 
 mydir=`dirname "$0"`
-mydir=`cd "$bin"; pwd`
+mydir=`cd "$mydir"; pwd`
 cd $mydir
 
 dumbo_dir=`cd ../../dumbo; pwd`
@@ -62,3 +62,5 @@ done
 run_tsqr $matbase-50 50 $reduce_schedule
 run_tsqr $matbase-50 100 $reduce_schedule
 run_tsqr $matbase-50 200 $reduce_schedule
+run_tsqr $matbase-100 50 $reduce_schedule
+run_tsqr $matbase-100 100 $reduce_schedule

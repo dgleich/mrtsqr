@@ -306,3 +306,23 @@ Checking tsqr-mr/test/mat-500g-50-qrr.mseq
 CORRECT
 
 
+
+
+
+
+new run
+Wed Feb  9 08:37:54 PST 2011
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 50 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 439
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
+-mat tsqr-mr/test/mat-500g-100.mseq -blocksize 100 -reduce_schedule 250,1
+Result: SUCCESS
+Elapsed: 422
+Checking tsqr-mr/test/mat-500g-100-qrr.mseq
+CORRECT
+
+
