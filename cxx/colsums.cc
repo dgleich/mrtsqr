@@ -154,15 +154,11 @@ public:
         int cur_key = 0;
         double rval = 0.;
         while (!feof(in.stream)) {
-            if (in.skip_next() == false) {
-                if (feof(in.stream)) {
-                    break;
-                } else {
-                    hadoop_message("invalid key: row %i\n", totalrows);
-                    exit(-1);
-                }
-            }
             TypedBytesType keytype = in.next_type();
+            if (keytype == TypedBytesTypeError && feof(in.stream)) {
+                // we are at the end of the file.
+                break;
+            }
             assert(keytype == TypedBytesInteger);
             int key = in.read_int();
             TypedBytesType valtype = in.next_type();
