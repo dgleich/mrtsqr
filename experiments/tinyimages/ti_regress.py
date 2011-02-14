@@ -26,33 +26,11 @@ import dumbo.backends.common
 
 import struct
 
+import tinyimages
+
 
 # create the global options structure
 gopts = util.GlobalOptions()
-
-class TinyImagesRegression:
-    def __call__(self,key,value):
-        """ 
-        @param key a long for the byte-offset into the tiny-images file
-        @param value a byte-string for the current image.
-        """
-        im = array.array('B',value)
-        #keystr = key
-        #print >>sys.stderr,"keystr: ", repr(keystr)
-        key = struct.unpack('>q',key)[0]
-        #print >>sys.stderr,"key: ", key
-        key = key/(3*1024)
-        
-        if key>1000:
-            # only work on the first 1000 images
-            pass
-        else:
-            # sum red, green, and blue pixels
-            red = im[0:1024]
-            green = im[1024:2048]
-            blue = im[2048:3072]
-            yield key, (sum(red),sum(green),sum(blue))
-        
 
 class TSQRLeastSquares(dumbo.backends.common.MapRedBase):
     def __init__(self,blocksize=3,keytype='random',isreducer=False):
@@ -66,7 +44,9 @@ class TSQRLeastSquares(dumbo.backends.common.MapRedBase):
         self.first_key = None
         self.isreducer=isreducer
         self.nrows = 0
+        self.resid = 0.
         self.data = []
+        self.rhs = []
         self.ncols = None
     
     def _firstkey(self, i):
@@ -83,13 +63,20 @@ class TSQRLeastSquares(dumbo.backends.common.MapRedBase):
         b = numpy.array(self.rhs)
         Q, R = numpy.linalg.qr(A,'full')
         c = numpy.dot(Q.T, b)
-        nb = numpy.norm(b)
-        nc = numpy.norm(c)
+        nb = numpy.linalg.norm(b)
+        nc = numpy.linalg.norm(c)
         self.resid += nb - nc
         return R, c
         
     def compress(self):
         """ Compute a QR factorization on the data accumulated so far. """
+        
+        if self.ncols is None:
+            return
+        if len(self.data) < self.ncols:
+            return
+            
+        
         t0 = time.time()
         R, c = self.QR()
         dt = time.time() - t0
@@ -105,7 +92,7 @@ class TSQRLeastSquares(dumbo.backends.common.MapRedBase):
             self.rhs.append(entry)
             
             
-    def collect(self,key,row,entry):
+    def collect(self,key,entry,row):
         """
         @param key the key for the row, rhs entry pair
         @param row the row of the matrix
@@ -136,7 +123,16 @@ class TSQRLeastSquares(dumbo.backends.common.MapRedBase):
         # write status updates so Hadoop doesn't complain
         if self.nrows%50000 == 0:
             self.counters['rows processed'] += 50000
-            
+        
+    def close(self):
+        self.counters['rows processed'] += self.nrows%50000
+        self.compress()
+        for i,row in enumerate(self.data):
+            key = self.keyfunc(i)
+            rhs = self.rhs[i]
+            yield key, (rhs,row)
+        
+    
     def __call__(self,data):
         if self.isreducer == False:
             # map job
@@ -144,17 +140,37 @@ class TSQRLeastSquares(dumbo.backends.common.MapRedBase):
                 if isinstance(value, str):
                     # handle conversion from string
                     value = [float(p) for p in value.split()]
-                self.collect(key,value)
+                    value = [value[0], value[1:]]
+                self.collect(key,value[0],value[1])
                 
         else:
             for key,values in data:
                 for value in values:
-                    self.collect(key,value)
+                    self.collect(key,value[0],value[1])
         # finally, output data
-        self.compress()
-        for i,row in enumerate(self.data):
-            key = self.keyfunc(i)
-            yield key, row
+        for k,v in self.close():
+            yield k,v
+            
+class TinyImagesRegression(TSQRLeastSquares, tinyimages.TinyImages):
+    """ This class is just a mapper to setup the TSQRLeastSquares problem.
+    """
+    def __init__(self):
+        TSQRLeastSquares.__init__(self)
+        
+    def __call__(self,data):
+        for key,val in data:
+            key = self.unpack_key(key)
+            # if enabled, stop early... (very helpful while debugging the reducer)
+            #if key > 40000:
+                #continue
+            sums = self.sum_rgb(val)
+            row = self.togray(val)
+            
+            self.collect(key,sums[0],row)
+            #yield key, 
+        for k,v in self.close():
+            yield k,v
+        
     
 def runner(job):
     #niter = int(os.getenv('niter'))
@@ -166,14 +182,14 @@ def runner(job):
     for iter,part in enumerate(schedule):
         if iter > 0:
             nreducers = int(part)
-            job.additer(mapper=SerialTSQR(blocksize=blocksize,isreducer=False),
-                    reducer=SerialTSQR(blocksize=blocksize,isreducer=True),
+            job.additer(mapper='org.apache.hadoop.mapred.lib.IdentityMapper',
+                    reducer=TSQRLeastSquares(blocksize=blocksize,isreducer=True),
                     opts=[('numreducetasks',str(nreducers))])
         else:
             nreducers = int(part)
             job.additer(mapper=TinyImagesRegression,
-                    #reducer=SerialTSQR(blocksize=blocksize,isreducer=True),
-                    reducer = dumbo.lib.identityreducer,
+                    reducer=TSQRLeastSquares(blocksize=blocksize,isreducer=True),
+                    #reducer = dumbo.lib.identityreducer,
                     opts=[('numreducetasks',str(nreducers)),
                           ('inputformat','org.apache.hadoop.mapred.lib.FixedLengthInputFormat'),
                           ('jobconf','mapreduce.input.fixedlengthinputformat.record.length=3072'),
@@ -188,10 +204,11 @@ def starter(prog):
     
     prog.addopt('memlimit','4g')
     prog.addopt('libegg','numpy')
-    prog.addopt('file','util.py')
+    prog.addopt('file','../../dumbo/util.py')
+    prog.addopt('file','tinyimages.py')
     
     input = '/data/tinyimages/original/tiny_images.bin'
-    output = 'tsqr-mr/ti/test-output'
+    output = 'tsqr-mr/ti/ti-regress.vseq'
     
     gopts.getintkey('blocksize',3)
     gopts.getstrkey('reduce_schedule','1')

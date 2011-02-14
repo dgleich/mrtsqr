@@ -10,5 +10,5 @@ cd $mydir/.. # go to directory with tsqr_common.sh
 cd $mydir
 export PYTHONPATH=$dumbo_dir:$PYTHONPATH
 echo $PYTHONPATH
-python ti_regress.py
+dumbo start ti_regress.py -reduce_schedule 250,1
 

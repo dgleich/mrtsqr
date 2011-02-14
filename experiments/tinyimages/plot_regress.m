@@ -1,7 +1,5 @@
-%% Matlab script to plot the principal components
+%% Matlab script to plot the regression coefficients
 % I wish I knew matplotlib better
-
-V = load('pca-R-V.tmat')';
 
 cmap = [
     0.0431    0.5176    0.7804
@@ -69,40 +67,19 @@ cmap = [
     0.5837    0.1990    0.0172
     0.6000    0.2000         0];
 
-
+%%
 figure(1);
-imdisp(reshape(V(:,1:16),32,32,1,16), cmap,'Size',[4 4],'Border',0.005)
-set(gcf,'PaperPositionMode','auto');
-print(gcf,'pc-1-16.png','-dpng','-r300');
-
-%%
-%close(1)
-set(0,'DefaultAxesFontSize',20);
-set(0,'DefaultAxesLineWidth',0.8);
-s = load('pca-R-S.tmat');
-plot(cumsum(s)./sum(s),'.-','MarkerSize',14,'LineWidth',1);
-xlim([1,100]); ylim([0,1]);
-xlabel('Principal Components');
-ylabel('Fraction of variance');
-axis square;
-greygrid;
-set(gca,'GridLineStyle','-');
-set(gcf,'Color','none');
-set(gcf, 'InvertHardCopy','off');
-print(gcf,'var-1-100.eps','-depsc2','-cmyk');
-
-%%
-clf;
-set(0,'DefaultAxesFontSize',20);
-set(0,'DefaultAxesLineWidth',0.8);
-s = load('pca-R-S.tmat');
-plot(cumsum(s)./sum(s),'-','MarkerSize',14,'LineWidth',1);
-xlim([1,1024]); ylim([0,1]);
-xlabel('Principal Components');
-ylabel('Fraction of variance');
-axis square;
-greygrid;
-set(gca,'GridLineStyle','-');
-set(gcf,'Color','none');
-set(gcf, 'InvertHardCopy','off');
-print(gcf,'var-1-1024.eps','-depsc2','-cmyk');
+x = load('ti-regress-sol.tmat'); 
+imagesc(reshape(x,32,32)); colormap(cmap); axis square;
+axis off;
+axis tight;
+% outerpos = get(gca, 'outerposition');
+% insetpos = get(gca, 'tightinset');
+% set(gca, 'position', [insetpos(1) insetpos(2) ...
+%     outerpos(3)-insetpos(3) outerpos(4)-insetpos(4)]);
+% set(gcf,'PaperPositionMode','auto');
+% print(gcf,'regress-32.png','-dpng','-r300');
+% 
+addpath('/home/dgleich/dev/matlab-extern/export_fig');
+%exportfig(gcf,'regress-32.png','Format','png','Resolution',300);
+export_fig('regress-32.png','-m2');
