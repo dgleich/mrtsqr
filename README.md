@@ -35,25 +35,24 @@ Coming soon
 Overview
 --------
 
-`dumbo/tsqr.py` - the tsqr function for dumbo
-`hadoopy/tsqr.py` - the tsqr code for hadoopy
-`cxx/tsqr.cc` - the tsqr code using C++
-`cxx/typedbytes.h` - the header file for the C++ typedbytes library
-`java/org.../FixedLengthRecordReader.java` - a record reader based on
+* `dumbo/tsqr.py` - the tsqr function for dumbo
+* `hadoopy/tsqr.py` - the tsqr code for hadoopy
+* `cxx/tsqr.cc` - the tsqr code using C++
+* `cxx/typedbytes.h` - the header file for the C++ typedbytes library
+* `java/org.../FixedLengthRecordReader.java` - a record reader based on
   MapReduce 1176 Jira
-  
-`experiments/tinyimages/ti_regress.py` - Code for least-squares regression
+* `experiments/tinyimages/ti_regress.py` - Code for least-squares regression
   using a TSQR  
 
 Figures and Tables
 -------------------
 
-`experiments/framework` - Table 2
-`experiments/blocksize` - Table 3
-`experiments/splitsize` - Table 4
-`experiments/tinyimages` - Regression Side-fig and Figure 5
-  Main file: `ti_pca.py` and `ti_regress.py`
-  Extraction files: `pca_svd.py` and `regression_output.py`
-  Plotting files: `plot_pc.m` and `plot_regress.m`
+* `experiments/framework` - Table 2
+* `experiments/blocksize` - Table 3
+* `experiments/splitsize` - Table 4
+* `experiments/tinyimages` - Regression Side-fig and Figure 5
+* - Main file: `ti_pca.py` and `ti_regress.py`
+* - Extraction files: `pca_svd.py` and `regression_output.py`
+* - Plotting files: `plot_pc.m` and `plot_regress.m`
 
 
