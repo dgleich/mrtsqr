@@ -20,6 +20,7 @@
       <include name="*.jar" />
       <include name="lib/**/*.jar" />
       <include name="contrib/streaming/*.jar" />
+      <include name="mapred/contrib/streaming/*.jar" />
     </fileset>
     <pathelement location="${env.MTJ_JAR}" />
     <pathelement location="${env.NETLIB_JAVA_JAR}" />

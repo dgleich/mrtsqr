@@ -26,6 +26,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobClient;
+import org.apache.hadoop.filecache.DistributedCache;
 
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.Mapper;
@@ -135,10 +136,20 @@ public class TSQR extends Configured implements Tool {
             reduceSchedule = "1";
         }
         
+        String blockSize = getArgument("-block_size",args);
+        if (blockSize == null) {
+            blockSize = "3";
+        }
+        
+        String splitSize = getArgument("-split_size",args);
+        
         sLogger.info("Tool name: TSQR");
-        sLogger.info(" - matrix: " + matfile);
-        sLogger.info(" - output: " + outputfile);
-        sLogger.info(" - reduce: " + reduceSchedule);
+        sLogger.info(" -mat: " + matfile);
+        sLogger.info(" -output: " + outputfile);
+        sLogger.info(" -reduce_schedule: " + reduceSchedule);
+        sLogger.info(" -block_size: " + blockSize);
+        sLogger.info(" -split_size: " + 
+            (splitSize == null ? "[Default]" : splitSize));
         
         String stages[] = reduceSchedule.split(",");
         String curinput = matfile;
@@ -154,17 +165,23 @@ public class TSQR extends Configured implements Tool {
             
             if (stage+1 < stages.length) {
                 curoutput = outputfile + "_iter"+(stage+1);
+            } else {
+                curoutput = outputfile;
             }
             
             // run the iteration
             // TODO make this a separate function?
-            JobConf conf = new JobConf(TSQR.class);
+            JobConf conf = new JobConf(getConf(), TSQR.class);
+            DistributedCache.createSymlink(conf);
             conf.setJobName(
                 "TSQR.java (" + (stage+1) + "/" + stages.length + ")");
             
             conf.setNumReduceTasks(numReducers);
             //conf.set("mapred.child.java.opts","-Xmx2G");
-            //conf.set("mapred.minsplit.size", splitSize);
+            if (splitSize != null) {
+                conf.set("mapred.minsplit.size", splitSize);
+                conf.set("mapreduce.input.fileinputformat.split.minsize", splitSize);
+            }
             
             // set the formats
             conf.setInputFormat(SequenceFileInputFormat.class);
@@ -184,6 +201,11 @@ public class TSQR extends Configured implements Tool {
             FileSystem.get(conf).delete(new Path(curoutput), true);
             FileInputFormat.setInputPaths(conf, new Path(curinput));
             FileOutputFormat.setOutputPath(conf, new Path(curoutput));
+            
+            sLogger.info("Iteration " + (stage+1) + " of " + stages.length);
+            sLogger.info(" - reducers: " + numReducers);
+            sLogger.info(" - curinput: " + curinput);
+            sLogger.info(" - curoutput: " + curoutput);
             
             JobClient.runJob(conf);
         }
