@@ -30,7 +30,14 @@ paper: A tall-and-skinny QR factorization in MapReduce.
 Synopsis
 --------
 
-Coming soon
+    hadoop fs -mkdir tsqr
+    hadoop fs -copyFromLocal data/verytiny.tmat tsqr/verytiny.tmat
+    dumbo start dumbo/matrix2seqfile.py \
+        -hadoop $HADOOP_INSTALL \
+        -input tsqr/verytiny.tmat -output tsqr/verytiny.mseq
+        
+    dumbo cat tsqr/verytiny.mseq \
+        -hadoop $HADOOP_INSTALL
 
 Overview
 --------

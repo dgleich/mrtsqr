@@ -1,16 +1,29 @@
-<project name="hadoop-lib" default="jar">
+<project name="tsqr-hadoop" default="jar">
+  <property environment="env"/>
   <property name="build.dir" value="./build"/>
   <property name="src.dir" value="./src" />
   
   <property name="classes.dir" value="${build.dir}/classes" />
   <property name="jar.dir" value="${build.dir}/jar" />
   
+  <target name="init">
+    <fail message="Please set the environment variable HADOOP_INSTALL">
+      <condition>
+        <not><isset property="env.HADOOP_INSTALL" /></not>
+      </condition>
+    </fail>
+  </target>
 
   <path id="classpath">
-    <pathelement location="/home/mrhadoop/hadoop/hadoop-common-0.21.0.jar" />
-    <pathelement location="/home/mrhadoop/hadoop/hadoop-mapred-0.21.0.jar" />  
-    <pathelement location="/home/mrhadoop/hadoop/lib/commons-logging-1.1.1.jar" /> 
-    <pathelement location="/home/mrhadoop/hadoop/lib/commons-logging-api-1.1.jar" /> 
+    <pathelement location="${classes.dir}" />
+    <fileset dir="${env.HADOOP_INSTALL}">
+      <include name="*.jar" />
+      <include name="lib/**/*.jar" />
+      <include name="contrib/streaming/*.jar" />
+    </fileset>
+    <pathelement location="${env.MTJ_JAR}" />
+    <pathelement location="${env.NETLIB_JAVA_JAR}" />
+    <pathelement location="${env.ARPACK_COMBINED_JAR}" />
    </path>
 
   <target name="compile">
@@ -20,7 +33,12 @@
 
   <target name="jar" depends="compile">
     <mkdir dir="${jar.dir}"/>
-    <jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}"/>
+    <jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
+      <zipfileset includes="**/*.class" src="${env.MTJ_JAR}"/>
+      <zipfileset includes="**/*.class" src="${env.NETLIB_JAVA_JAR}" />
+      <zipfileset includes="**/*.class" src="${env.ARPACK_COMBINED_JAR}" />
+      <zipfileset includes="**/*.class" src="${env.HADOOP_STREAMING_JAR}" />
+    </jar>
   </target>
 
   <target name="clean">

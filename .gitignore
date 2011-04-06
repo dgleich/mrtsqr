@@ -2,3 +2,5 @@
 java/build
 hadoopy/frozen
 *.class
+tsqr/
+*.egg

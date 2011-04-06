@@ -6,12 +6,13 @@ package gov.sandia.dfgleic;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.lang.reflect.Field;
+
 import java.io.IOException;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.BytesWritable;
-
 
 
 import org.apache.hadoop.mapred.JobConf;
@@ -22,7 +23,6 @@ import org.apache.hadoop.mapred.ClusterStatus;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapreduce.MRJobConfig;
 import org.apache.hadoop.mapred.FileOutputFormat;
 
 import org.apache.hadoop.mapred.Reporter;
@@ -45,7 +45,15 @@ import org.apache.hadoop.mapred.JobContext;
     public InputSplit[] getSplits(JobConf job, int inputSplits) throws IOException {
       List<InputSplit> result = new ArrayList<InputSplit>();
       Path outDir = FileOutputFormat.getOutputPath(job);
-      int numSplits = job.getInt(MRJobConfig.NUM_MAPS, 1);
+      String numMapsConfig = null;
+      try {
+          Class c = Class.forName("org.apache.hadoop.mapreduce.MRJobConfig");
+          Field f = c.getField("NUM_MAPS");
+          numMapsConfig = (String)f.get(null);
+      } catch (Throwable e) {
+          numMapsConfig = "mapred.map.tasks";
+      }
+      int numSplits = job.getInt(numMapsConfig, 1);
       for(int i=0; i < numSplits; ++i) {
         result.add(new FileSplit(new Path(outDir, "dummy-split-" + i), 0, 1, 
                                   (String[])null));
