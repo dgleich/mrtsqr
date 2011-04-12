@@ -4,3 +4,4 @@ hadoopy/frozen
 *.class
 tsqr/
 *.egg
+local-hadoop
