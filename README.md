@@ -30,14 +30,52 @@ paper: A tall-and-skinny QR factorization in MapReduce.
 Synopsis
 --------
 
+Here, we detail the minimum possible steps required to get things
+working.
+
+### Setup
+
+Ideally, there would be no setup.  However, to make things easier
+at other stages, there are a few things you must do.
+
+### Assumptions
+
+* dumbo is installed and working
+* numpy is installed and working
+* hadoop is installed and working
+
+### Example
+
+    # Load all the paths.  You should update this for your setup.
+    # This example only needs HADOOP_INSTALL set
+    source setup_env.sh
+    
+    # Move a matrix into HDFS, properly formatted for our tools
     hadoop fs -mkdir tsqr
     hadoop fs -copyFromLocal data/verytiny.tmat tsqr/verytiny.tmat
     dumbo start dumbo/matrix2seqfile.py \
         -hadoop $HADOOP_INSTALL \
         -input tsqr/verytiny.tmat -output tsqr/verytiny.mseq
+    
+    # Look at the matrix in HDFS
+    dumbo cat tsqr/verytiny.mseq -hadoop $HADOOP_INSTALL
         
-    dumbo cat tsqr/verytiny.mseq \
-        -hadoop $HADOOP_INSTALL
+    #    
+    # Compute it's QR factorization
+    #
+    
+    dumbo start dumbo/tsqr.py -mat tsqr/verytiny.tmat -use_system_numpy
+    
+    # The -use_system_numpy option tells tsqr.py to 
+    # use the numpy on the system.  On my cluster, the
+    # compute nodes don't have numpy installed, so I ship
+    # an egg with the streaming job to give them numpy.
+    
+    #
+    # Look at the R in the QR
+    #
+    
+    dumbo cat tsqr/verytiny-qrr.mseq -hadoop $HADOOP_INSTALL
 
 Overview
 --------

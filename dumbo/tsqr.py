@@ -150,6 +150,9 @@ def starter(prog):
     
     print "running starter!"
     
+    mypath =  os.path.dirname(__file__)
+    print "my path: " + mypath
+    
     # set the global opts
     gopts.prog = prog
     
@@ -159,8 +162,12 @@ def starter(prog):
         return "'mat' not specified'"
         
     prog.addopt('memlimit','4g')
-    prog.addopt('libegg','numpy')
-    prog.addopt('file','util.py')
+    
+    nonumpy = prog.delopt('use_system_numpy')
+    if not nonumpy:
+        prog.addopt('libegg','numpy')
+        
+    prog.addopt('file',os.path.join(mypath,'util.py'))
     
     prog.addopt('input',mat)
     matname,matext = os.path.splitext(mat)
