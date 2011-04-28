@@ -130,7 +130,11 @@ class ComputeSVDLeft(dumbo.backends.common.MapRedBase):
     
     def compute_U(self,A):
         """ Compute AR^{+} for the pseudo-inverse """
+        #print >>sys.stderr, "A.shape: " + str(A.shape)
+        #print >>sys.stderr, "self.V.shape: " + str(self.V.shape)
         AR = numpy.dot(A,self.V)
+        #print >>sys.stderr, "AR.shape: " + str(AR.shape)
+        #print >>sys.stderr, "diag(self.Sinv).shape: " + str(numpy.diag(self.Sinv).shape)
         AR = numpy.dot(AR,numpy.diag(self.Sinv))
         return AR
     
@@ -143,6 +147,9 @@ class ComputeSVDLeft(dumbo.backends.common.MapRedBase):
         tol = max(R.shape)*numpy.finfo(float).eps*max(S)
         r = numpy.sum(S>tol)
         self.Sinv = 1./S[0:r]
+        if len(self.Sinv) < self.V.shape[1]:
+            self.Sinv = numpy.hstack((self.Sinv,
+                numpy.zeros(self.V.shape[1] - len(self.Sinv))))
         # map job
         for key,value in data:
             if isinstance(value, str):
