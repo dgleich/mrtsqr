@@ -109,8 +109,6 @@ class ComputeSVDLeft(dumbo.backends.common.MapRedBase):
             
             if self.ncols is None:
                 return
-            if len(self.data) < self.ncols:
-                return
                 
             t0 = time.time()
             A = numpy.array(self.data)
@@ -161,7 +159,7 @@ class ComputeSVDLeft(dumbo.backends.common.MapRedBase):
                 yield key, value
      
         # finally, output data
-        for key,value in self.output():
+        for key,value in self.output(final=True):
             yield key,value
     
 def runner(job):
