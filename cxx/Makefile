@@ -1,11 +1,14 @@
-# On NERSC machines: module load gcc; module load mkl
 CXX=g++44
-#CXX=g++ [NERSC]
-
 CC=$(CXX)
 CXXFLAGS=-Wall -O3  -std=c++0x
 LDFLAGS=-L$(MKL_LIBDIR) -lmkl_core 
-#LDFLAGS=$(MKL) -lpthread [NERSC]
+
+# note: NERSC machines need mkl and gcc modules
+NERSC := $(shell uname -r)
+ifneq (, $(filter %nersc,$(NERSC)))
+  CXX=g++
+  LDFLAGS=$(MKL) -lpthread
+endif
 
 all: tsqr word_count colsums tests
 
