@@ -1,9 +1,11 @@
-
+# On NERSC machines: module load gcc; module load mkl
 CXX=g++44
+#CXX=g++ [NERSC]
 
 CC=$(CXX)
 CXXFLAGS=-Wall -O3  -std=c++0x
-LDFLAGS=-L/usr/lib64/atlas -llapack43 -lf77blas43 -latlas43
+LDFLAGS=-L$(MKL_LIBDIR) -lmkl_core 
+#LDFLAGS=$(MKL) -lpthread [NERSC]
 
 all: tsqr word_count colsums tests
 
