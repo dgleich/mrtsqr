@@ -46,7 +46,8 @@ class Cholesky(dumbo.backends.common.MapRedBase):
                 self.data[key] = list(struct.unpack('d'*self.ncols, value))
                 
         for key,val in self.close():
-            yield key, val
+            r = self.array2list(val)
+            yield key, struct.pack('d'*len(r), *r)
 
 class AtA(dumbo.backends.common.MapRedBase):
     def __init__(self,blocksize=3,keytype='random',isreducer=False,ncols=10):
