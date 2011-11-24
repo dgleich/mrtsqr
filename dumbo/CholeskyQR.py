@@ -37,7 +37,7 @@ class Cholesky(dumbo.backends.common.MapRedBase):
 
     def close(self):
         L = numpy.linalg.cholesky(self.data)
-        for ind, row in enumerate(L):
+        for ind, row in enumerate(L.T):
             yield ind, row
 
     def __call__(self,data):
@@ -46,8 +46,7 @@ class Cholesky(dumbo.backends.common.MapRedBase):
                 self.data[key] = list(struct.unpack('d'*self.ncols, value))
                 
         for key,val in self.close():
-            r = self.array2list(val)
-            yield key, struct.pack('d'*len(r), *r)
+            yield key, val
 
 class AtA(dumbo.backends.common.MapRedBase):
     def __init__(self,blocksize=3,keytype='random',isreducer=False,ncols=10):
