@@ -37,7 +37,8 @@ class Cholesky(dumbo.backends.common.MapRedBase):
 
     def close(self):
         L = numpy.linalg.cholesky(self.data)
-        for ind, row in enumerate(L.T.getA()):
+        M = numpy.mat(L.T)
+        for ind, row in enumerate(M.getA()):
             yield ind, row
 
     def __call__(self,data):
