@@ -5,6 +5,13 @@ CC=$(CXX)
 CXXFLAGS=-Wall -O3  -std=c++0x
 LDFLAGS=-L/usr/lib64/atlas -llapack43 -lf77blas43 -latlas43
 
+# note: NERSC machines need mkl and gcc modules
+NERSC := $(shell uname -r)
+ifneq (, $(filter %nersc,$(NERSC)))
+  CXX=g++
+  LDFLAGS=$(MKL) -lpthread
+endif
+
 all: tsqr word_count colsums tests
 
 tests: dump_typedbytes_info write_typedbytes_test
